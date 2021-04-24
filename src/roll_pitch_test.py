@@ -22,19 +22,11 @@ if __name__ == "__main__":
         mfs=AK8963_BIT_16, 
         mode=AK8963_MODE_C100HZ)
 
-    mpu.calibrate()
     mpu.configure()
 
     while True:
+    	r, p = get_roll_pitch(mpu)
+    	print(f"roll: {degrees(r):6.2f}; pitch: {degrees(p):6.2f}", end='\r')
 
-        print("|.....MPU9250 in 0x68 Address.....|")
-        print("Accelerometer", mpu.readAccelerometerMaster())
-        print("Gyroscope", mpu.readGyroscopeMaster())
-        print("Magnetometer", mpu.readMagnetometerMaster())
-        print("Temperature", mpu.readTemperatureMaster())
-        roll, pitch = get_roll_pitch(mpu)        
+    	time.sleep(0.1)
 
-        print(f"Roll: {degrees(roll):.2f}; Pitch: {degrees(pitch):.2f}")
-        print("\n")
-
-        time.sleep(1)
