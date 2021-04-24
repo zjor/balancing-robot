@@ -1,8 +1,10 @@
 #!/bin/bash
 
-IMAGE_DIR=/Volumes/boot
-SSID=$1
-PASSWORD=$2
+read -p "Enter image dir [/Volumes/boot]: " IMAGE_DIR
+IMAGE_DIR=${IMAGE_DIR:-/Volumes/boot}
+
+read -p "SSID: " SSID
+read -p "Password: " PASSWORD
 
 cd ${IMAGE_DIR}
 set -x

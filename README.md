@@ -20,12 +20,24 @@ network={
 
 4. Plug SD card to Pi and boot, after some time connect using
 - `ssh pi@raspberrypi.local`
-- `ssh pi@rpi-zero-a.local`
-- `ssh pi@rpi-zero-b.local`
 
 default password: raspberry
 
 ## Shutting down R Pi
 
 `sudo shutdown -h now`
+
+## Enable I2C
+
+1. Install dependencies
+```
+sudo apt-get install -y python-smbus
+sudo apt-get install -y i2c-tools
+```
+
+2. Enable I2C support
+`sudo raspi-config`
+
+3. Test connected devices
+`sudo i2cdetect -y 1`
 
