@@ -41,8 +41,9 @@ class Stepper:
     def set_velocity(self, velocity):
         if abs(velocity) < Stepper.MIN_VELOCITY_THRESHOLD:
             self.step_delay = Stepper.MAX_STEP_DELAY
-        self.step_delay = (2.0 * pi / self.ppr / velocity) - Stepper.STEP_PULSE_WIDTH
-        self.set_direction(Stepper.CW if velocity > 0 else Stepper.CCW)
+        else:
+            self.step_delay = (2.0 * pi / self.ppr / abs(velocity)) - Stepper.STEP_PULSE_WIDTH
+            self.set_direction(Stepper.CW if velocity > 0 else Stepper.CCW)
 
     def loop(self):
         now = time.time()
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     motor = Stepper(dir_pin=5, step_pin=6, ppr=400)
 
     motor.set_direction(Stepper.CW)
-    motor.set_velocity(6.0 * pi)
+    motor.set_velocity(-6.0 * pi)
 
     try:
         while True:
