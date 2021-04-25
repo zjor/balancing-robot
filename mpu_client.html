@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>WebSocket demo</title>
+    </head>
+    <body>
+        <h1>MPU data</h1>
+        <div id="data"></div>
+        <script>
+            const ws = new WebSocket("ws://raspberrypi.local:5678/");
+            const dataDiv = document.querySelector('#data');
+                
+            ws.onmessage = function (event) {
+                dataDiv.innerText = event.data;
+            };
+            document.body.appendChild(messages);
+        </script>
+    </body>
+</html>
