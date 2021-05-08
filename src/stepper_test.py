@@ -11,7 +11,7 @@ right_stepper = None
 
 def handler(now, dt):
     global left_stepper, right_stepper
-    velocity = sin(now) * 2 * pi
+    velocity = sin(now) * 8 * pi
     left_stepper.set_velocity(velocity)
 
 
