@@ -27,11 +27,16 @@ class TimedTask:
 
 
 if __name__ == "__main__":
-    def run(now, dt):
-        print(f"Called at {now}; dt={dt}")
 
+    class Worker:
+        def __init__(self, name):
+            self.name = name
 
-    tt = TimedTask(delay=0.5, run=run, start_delay=1.5)
+        def run(self, now, dt):
+            print(f"[{self.name}]: Called at {now}; dt={dt}")
+
+    w = Worker("worker")
+    tt = TimedTask(delay=0.5, run=w.run, start_delay=1.5)
 
     try:
         while True:
