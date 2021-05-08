@@ -1,40 +1,34 @@
 import time
 import RPi.GPIO as GPIO
-from math import pi
+from math import pi, sin
 
-DIR_PIN = 5
-STEP_PIN = 6
+from motor import stepper
+from util import timed_task
 
-STEPS_PER_REV = 400
-
-
-def get_delay(v):
-    return 2.0 * pi / v / STEPS_PER_REV
+left_stepper = None
+right_stepper = None
 
 
-def step(step_pin):
-    GPIO.output(step_pin, GPIO.HIGH)
-    time.sleep(1e-6)
-    GPIO.output(step_pin, GPIO.LOW)
+def handler(now, dt):
+    global left_stepper, right_stepper
+    velocity = sin(now) * 2 * pi
+    left_stepper.set_velocity(velocity)
 
 
 if __name__ == "__main__":
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(DIR_PIN, GPIO.OUT)
-    GPIO.setup(STEP_PIN, GPIO.OUT)
+    left_stepper = stepper.Stepper(dir_pin=5, step_pin=6, ppr=400)
+    right_stepper = stepper.Stepper(dir_pin=20, step_pin=21, ppr=400)
 
+    left_stepper.set_velocity(pi)
+    right_stepper.set_velocity(0)
 
-    GPIO.output(DIR_PIN, GPIO.HIGH)
+    tt = timed_task.TimedTask(0.01, handler)
+
     try:
-        print('Running stepper...')
-        d = get_delay(10.0 * pi)
-
         while True:
-            step(STEP_PIN)
-            time.sleep(d)
-
+            left_stepper.loop()
+            right_stepper.loop()
+            tt.loop()
     except KeyboardInterrupt:
         print('Interrupted')
     GPIO.cleanup()
-
-
