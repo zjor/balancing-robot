@@ -5,7 +5,7 @@ from sensor.mpu import MPU
 from motor.stepper import Stepper
 from util import timed_task, pid
 
-PITCH_BIAS = 1.52
+PITCH_BIAS = 0
 
 
 class BalancingRobot:
@@ -22,7 +22,7 @@ class BalancingRobot:
         self.target_velocity = 0.0
         self.v = 0.0
 
-        self.pid = pid.PID(k_p=25.0, k_d=0.01, k_i=0.0, target=0.01, init_value=0.0)
+        self.pid = pid.PID(k_p=25.0, k_d=0.0, k_i=0.0, target=0.0, init_value=0.0)
         self.sensor_read_task = timed_task.TimedTask(delay=0.1, run=self.update_angle_handler)
         self.control_loop_task = timed_task.TimedTask(delay=0.05, run=self.control_loop_handler)
         self.update_velocity_task = timed_task.TimedTask(delay=0.01, run=self.update_velocity_handler)
@@ -35,7 +35,7 @@ class BalancingRobot:
         u = self.pid.get_control(self.angle, dt)
         self.target_velocity = u
         self.v = (self.target_velocity - self.velocity) / 5
-        # print(f"angle: {self.angle}; velocity: {self.velocity}")
+        print(f"angle: {self.angle}; velocity: {self.target_velocity}")
 
     def update_velocity_handler(self, now, dt):
         self.velocity += self.v
@@ -51,7 +51,10 @@ class BalancingRobot:
 
 
 if __name__ == "__main__":
-    mpu = MPU()
+    print("Calibrating MPU...")
+    mpu = MPU(calibrate=True)
+    print("done")
+    
     left_motor = Stepper(dir_pin=5, step_pin=6, ppr=400)
     right_motor = Stepper(dir_pin=20, step_pin=21, ppr=400)
 

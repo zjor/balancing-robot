@@ -16,8 +16,10 @@ class MPU:
             mode=AK8963_MODE_C100HZ)
 
         if calibrate:
-            self.mpu.calibrate()
+            # self.mpu.calibrate()
+            self.mpu.calibrateMPU6500()
         self.mpu.configure()
+        self.mpu.writeMaster(CONFIG, 0x04)
 
 
     def get_roll_pitch(self):
