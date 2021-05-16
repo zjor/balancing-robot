@@ -1,21 +1,35 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#include "PID.h"
 #include "MPU9250.h"
 #include "TimedTask.h"
 
 #define RIGHT_MOTOR_STEP_PIN  15
 #define RIGHT_MOTOR_DIR_PIN   32
-#define LEFT_MOTOR_STEP_PIN 17
-#define LEFT_MOTOR_DIR_PIN 21
+#define LEFT_MOTOR_STEP_PIN   17
+#define LEFT_MOTOR_DIR_PIN    21
 
 #define PPR       400
 
 #define TICKS_PER_SECOND 200000
 
-#define SET_POINT 92.5
+#define SET_POINT 85.0
 
 MPU9250 mpu;
+PID pid(80.0, -1.0, 0.0, SET_POINT * DEG_TO_RAD);
+bool is_balancing = false;
+
+#define ANGLE_AVG 5
+float angle_buf[ANGLE_AVG];
+
+float getAngleAvg() {
+  float s = 0.0;
+  for (int i = 0; i < ANGLE_AVG; i++) {
+    s += angle_buf[i];
+  }
+  return s / ANGLE_AVG;
+}
 
 void setCalibrationValues() {
   mpu.setAccBias(41.58, 22.70, 84.88);
@@ -87,20 +101,30 @@ void log(unsigned long now, unsigned long dt) {
 
 TimedTask loggerTask(log, 50);
 
-void control(unsigned long now, unsigned long dt) {
-  if (mpu.update()) {
-      angle = mpu.getRoll();
-      if (abs(angle - SET_POINT) < 15.0) {
-        float u = radians(angle - SET_POINT) * dt * 0.1;
-        velocity += u;
-      } else {
-        velocity = 0.0;
-      }
-      setVelocity(velocity);
+void control(unsigned long now_millis, unsigned long dt_millis) {
+  float dt = dt_millis * 1e-3;
+  angle = getAngleAvg();
+
+  if (abs(angle - SET_POINT) < 5.0) {
+    is_balancing = true;
   }
+
+  if (abs(angle - SET_POINT) > 50.0) {
+    is_balancing = false;
+    velocity = 0.0;
+    setVelocity(velocity);
+  }
+
+  if (!is_balancing) {
+    return;
+  }
+
+  float u = pid.getControl(angle * DEG_TO_RAD, dt);
+  velocity += u * dt;
+  setVelocity(velocity);  
 }
 
-TimedTask controlTask(control, 10);
+TimedTask controlTask(control, 7);
 
 void setup() {
   Serial.begin(115200);
@@ -126,8 +150,15 @@ void setup() {
   setVelocity(0);
 }
 
+int angle_i = 0;
+
 void loop() {  
   controlTask.loop();
   loggerTask.loop();
+
+  if (mpu.update()) {
+    angle_buf[angle_i++] = mpu.getRoll();
+    angle_i = angle_i % ANGLE_AVG;
+  }
 }
 
