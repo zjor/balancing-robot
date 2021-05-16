@@ -18,10 +18,31 @@
 MPU9250 mpu;
 
 void setCalibrationValues() {
-  mpu.setAccBias(39.81, 23.91, 85.44);
-  mpu.setGyroBias(-1.72, 2.98, 1.44);
+  mpu.setAccBias(41.58, 22.70, 84.88);
+  mpu.setGyroBias(-1.64, 3.06, 1.40);
   mpu.setMagBias(426.18, 13.96, 457.22);
   mpu.setMagScale(1.06, 0.72, 1.52);
+}
+
+void initMPU() {
+  MPU9250Setting setting;
+  setting.accel_fs_sel = ACCEL_FS_SEL::A2G;
+  setting.gyro_fs_sel = GYRO_FS_SEL::G250DPS;
+  setting.mag_output_bits = MAG_OUTPUT_BITS::M16BITS;
+  setting.fifo_sample_rate = FIFO_SAMPLE_RATE::SMPL_200HZ;
+  setting.gyro_fchoice = 0x03;
+  setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::DLPF_41HZ;
+  setting.accel_fchoice = 0x01;
+  setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::DLPF_45HZ;
+
+  if (!mpu.setup(0x68, setting)) {
+    while (1) {
+      Serial.println("MPU connection failed. Please check your connection with `connection_check` example.");
+      delay(1000);
+    }
+  }
+  setCalibrationValues();
+  mpu.selectFilter(QuatFilterSel::MAHONY);
 }
 
 hw_timer_t * timer = NULL;
@@ -84,15 +105,9 @@ TimedTask controlTask(control, 10);
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-  delay(2000);
 
-  if (!mpu.setup(0x68)) {
-    while (1) {
-      Serial.println("MPU connection failed. Please check your connection with `connection_check` example.");
-      delay(1000);
-    }
-  }
-  setCalibrationValues();
+  initMPU();
+
   pinMode(LEFT_MOTOR_STEP_PIN, OUTPUT);
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
   pinMode(RIGHT_MOTOR_STEP_PIN, OUTPUT);
