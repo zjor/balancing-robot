@@ -10,14 +10,14 @@
 #define LEFT_MOTOR_STEP_PIN   17
 #define LEFT_MOTOR_DIR_PIN    21
 
-#define PPR       400
+#define PPR       1600
 
 #define TICKS_PER_SECOND 200000
 
-#define SET_POINT 85.0
+#define SET_POINT 90.0
 
 MPU9250 mpu;
-PID pid(80.0, -1.0, 0.0, SET_POINT * DEG_TO_RAD);
+PID pid(5.0, 10.0, 0.0, SET_POINT * DEG_TO_RAD);
 bool is_balancing = false;
 
 #define ANGLE_AVG 5
