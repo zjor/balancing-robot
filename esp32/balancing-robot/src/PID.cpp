@@ -20,6 +20,5 @@ float PID::getControl(float value, float dt_seconds) {
 
 void PID::setTarget(float target) {
     _target = target;
-    _has_last_value = false;
     _integralError = .0;
 }
