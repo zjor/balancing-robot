@@ -3,7 +3,7 @@
 
 #include <Adafruit_MPU6050.h>
 
-#define G 9.81
+#define G (9.80665F)
 
 template<typename A, typename B>
 struct tuple_t {
@@ -21,7 +21,7 @@ typedef struct {
 
 class IMU {
 public:
-  IMU(Adafruit_MPU6050 mpu);
+  IMU(Adafruit_MPU6050 *mpu);
   tuple_t<vector3d_t, vector3d_t> calibrate(unsigned int samples_count, unsigned long delay_ms);
   void setAccelOffset(vector3d_t v);
   void setGyroOffset(vector3d_t v);
@@ -31,11 +31,17 @@ public:
   roll_pitch_t getFilteredRollPitch();
 
 private:
-  Adafruit_MPU6050 _mpu;
+  Adafruit_MPU6050 *_mpu;
+
   vector3d_t _accel_offset = {.0, .0, .0};
   vector3d_t _gyro_offset = {.0, .0, .0};
+
+  vector3d_t _accel = {.0, .0, .0};
+  vector3d_t _gyro = {.0, .0, .0};
+
   float _gyro_roll = .0;
   float _gyro_pitch = .0;
+  
   unsigned long _last_reading_us;
 };
 

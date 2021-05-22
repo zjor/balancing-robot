@@ -13,7 +13,7 @@ const float accel_offset[3] = {0.8864, -0.1769, -1.1098};
 const float gyro_offset[3] = {-0.0160, 0.0215, -0.0261};
 
 Adafruit_MPU6050 mpu;
-IMU imu(mpu);
+IMU imu(&mpu);
 
 roll_pitch_t getAccelRollPitch(float ax, float ay, float az) {
   const float alpha = 0.2;
@@ -64,10 +64,28 @@ roll_pitch_t getGyroRollPitch(float gx, float gy, float gz, float roll_accel, fl
   return r;
 }
 
+void initMPU() {
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(500);
+    }
+  }
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_10_HZ);
+}
+
 void calibrate() {  
+
+  imu.setAccelOffset({ -1.6946, 0.1172, -1.7420 });
+  imu.setGyroOffset({ -0.0253, 0.0051, -0.0071 });
+  return;
+
   Serial.println("Calibrating...");
 
-  tuple_t<vector3d_t, vector3d_t> offsets = imu.calibrate(2000, 250);
+  tuple_t<vector3d_t, vector3d_t> offsets = imu.calibrate(2000, 10);
 
   Serial.print("Acc offset: ");
   Serial.print(offsets.a.x, 4);
@@ -91,26 +109,15 @@ void calibrate() {
 void setup(void) {
   Serial.begin(115200);
 
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(500);
-    }
-  }
-
-  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_10_HZ);
-
-  // calibrate();
+  initMPU();
+  calibrate();
 }
 
 void loop() {
-  // return;
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  imu.update();
+  roll_pitch_t rp = imu.getGyroRollPitch();
 
-  logger.info("%.4f\t%.4f\n", a.acceleration.x, g.gyro.x);
+  Serial.printf("%.4f\t%.4f\n", rp.roll, rp.pitch);
 
-  delay(250);
+  delay(1);
 }
