@@ -1,164 +1,116 @@
 #include <Arduino.h>
+
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 #include <Wire.h>
 
-#include "PID.h"
-#include "MPU9250.h"
-#include "TimedTask.h"
+#include "imu/imu.h"
+#include "util/logger.h"
 
-#define RIGHT_MOTOR_STEP_PIN  15
-#define RIGHT_MOTOR_DIR_PIN   32
-#define LEFT_MOTOR_STEP_PIN   17
-#define LEFT_MOTOR_DIR_PIN    21
+Logger logger(false);
 
-#define PPR       1600
+const float accel_offset[3] = {0.8864, -0.1769, -1.1098};
+const float gyro_offset[3] = {-0.0160, 0.0215, -0.0261};
 
-#define TICKS_PER_SECOND 200000
+Adafruit_MPU6050 mpu;
+IMU imu(mpu);
 
-#define SET_POINT 90.0
+roll_pitch_t getAccelRollPitch(float ax, float ay, float az) {
+  const float alpha = 0.2;
+  static float fx = ax;
+  static float fy = ay;
+  static float fz = az;
 
-MPU9250 mpu;
-PID pid(5.0, 10.0, 0.0, SET_POINT * DEG_TO_RAD);
-bool is_balancing = false;
+  fx = alpha * ax + (1.0 - alpha) * fx;
+  fy = alpha * ay + (1.0 - alpha) * fy;
+  fz = alpha * az + (1.0 - alpha) * fz;
 
-#define ANGLE_AVG 5
-float angle_buf[ANGLE_AVG];
+  roll_pitch_t r;
+  // r.roll = atan2(-fy, fz);
+  r.roll = atan2(-fy, sqrt(fx * fx + fz * fz));
+  r.pitch = atan2(fx, sqrt(fy * fy + fz * fz));
 
-float getAngleAvg() {
-  float s = 0.0;
-  for (int i = 0; i < ANGLE_AVG; i++) {
-    s += angle_buf[i];
-  }
-  return s / ANGLE_AVG;
+  return r;
 }
 
-void setCalibrationValues() {
-  mpu.setAccBias(41.58, 22.70, 84.88);
-  mpu.setGyroBias(-1.64, 3.06, 1.40);
-  mpu.setMagBias(426.18, 13.96, 457.22);
-  mpu.setMagScale(1.06, 0.72, 1.52);
+roll_pitch_t getRawAccelRollPitch(float ax, float ay, float az) {
+  roll_pitch_t r;
+  // r.roll = atan2(-ay, az);
+  r.roll = atan2(-ay, sqrt(ax * ax + az * az));
+  r.pitch = atan2(ax, sqrt(ay * ay + az * az));
+
+  return r;
 }
 
-void initMPU() {
-  MPU9250Setting setting;
-  setting.accel_fs_sel = ACCEL_FS_SEL::A2G;
-  setting.gyro_fs_sel = GYRO_FS_SEL::G250DPS;
-  setting.mag_output_bits = MAG_OUTPUT_BITS::M16BITS;
-  setting.fifo_sample_rate = FIFO_SAMPLE_RATE::SMPL_200HZ;
-  setting.gyro_fchoice = 0x03;
-  setting.gyro_dlpf_cfg = GYRO_DLPF_CFG::DLPF_41HZ;
-  setting.accel_fchoice = 0x01;
-  setting.accel_dlpf_cfg = ACCEL_DLPF_CFG::DLPF_45HZ;
+roll_pitch_t getGyroRollPitch(float gx, float gy, float gz, float roll_accel, float pitch_accel) {
+  static unsigned long ts = micros();
+  static float roll = roll_accel;
+  static float pitch = pitch_accel;
 
-  if (!mpu.setup(0x68, setting)) {
+  unsigned long now = micros();
+  float dt = 1e-6 * (now - ts);
+  ts = now;
+
+  roll += -gy * dt;
+  pitch += -gx * dt;
+
+  const float a = 0.91;
+  roll = a * roll + (1.0 - a) * roll_accel;
+  pitch = a * pitch + (1.0 - a) * pitch_accel;
+
+  roll_pitch_t r;
+  r.roll = roll;
+  r.pitch = pitch;
+  return r;
+}
+
+void calibrate() {  
+  Serial.println("Calibrating...");
+
+  tuple_t<vector3d_t, vector3d_t> offsets = imu.calibrate(2000, 250);
+
+  Serial.print("Acc offset: ");
+  Serial.print(offsets.a.x, 4);
+
+  Serial.print(", ");
+  Serial.print(offsets.a.y, 4);
+
+  Serial.print(", ");
+  Serial.println(offsets.a.z, 4);
+
+  Serial.print("Gyro offset: ");
+  Serial.print(offsets.b.x, 4);
+
+  Serial.print(", ");
+  Serial.print(offsets.b.y, 4);
+
+  Serial.print(", ");
+  Serial.println(offsets.b.z, 4);  
+}
+
+void setup(void) {
+  Serial.begin(115200);
+
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
     while (1) {
-      Serial.println("MPU connection failed. Please check your connection with `connection_check` example.");
-      delay(1000);
+      delay(500);
     }
   }
-  setCalibrationValues();
-  mpu.selectFilter(QuatFilterSel::MAHONY);
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_10_HZ);
+
+  // calibrate();
 }
 
-hw_timer_t * timer = NULL;
-volatile uint32_t ticksPerPulse = TICKS_PER_SECOND;
-volatile uint32_t currentTick = 0;
-float angle;
-float velocity;
+void loop() {
+  // return;
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
 
-int getTicksPerPulse(float velocity) {
-  if (abs(velocity) < 1e-3) {
-    return UINT32_MAX;
-  } else {
-    return (uint32_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR));
-  }  
+  logger.info("%.4f\t%.4f\n", a.acceleration.x, g.gyro.x);
+
+  delay(250);
 }
-
-void setVelocity(float velocity) {
-  digitalWrite(LEFT_MOTOR_DIR_PIN, velocity > 0 ? HIGH : LOW);
-  digitalWrite(RIGHT_MOTOR_DIR_PIN, velocity < 0 ? HIGH : LOW);
-  ticksPerPulse = getTicksPerPulse(velocity);
-}
-
-void IRAM_ATTR onTimer() {
-  if (currentTick >= ticksPerPulse) {
-    currentTick = 0;
-  }
-  if (currentTick == 0) {
-    digitalWrite(LEFT_MOTOR_STEP_PIN, HIGH);
-    digitalWrite(RIGHT_MOTOR_STEP_PIN, HIGH);
-  } else if (currentTick == 1) {
-    digitalWrite(LEFT_MOTOR_STEP_PIN, LOW);
-    digitalWrite(RIGHT_MOTOR_STEP_PIN, LOW);
-  }
-  currentTick++; 
-}
-
-void log(unsigned long now, unsigned long dt) {
-  Serial.print(angle, 4);
-  Serial.print("\t");
-  Serial.println(velocity);
-}
-
-TimedTask loggerTask(log, 50);
-
-void control(unsigned long now_millis, unsigned long dt_millis) {
-  float dt = dt_millis * 1e-3;
-  angle = getAngleAvg();
-
-  if (abs(angle - SET_POINT) < 5.0) {
-    is_balancing = true;
-  }
-
-  if (abs(angle - SET_POINT) > 50.0) {
-    is_balancing = false;
-    velocity = 0.0;
-    setVelocity(velocity);
-  }
-
-  if (!is_balancing) {
-    return;
-  }
-
-  float u = pid.getControl(angle * DEG_TO_RAD, dt);
-  velocity += u * dt;
-  setVelocity(velocity);  
-}
-
-TimedTask controlTask(control, 7);
-
-void setup() {
-  Serial.begin(115200);
-  Wire.begin();
-
-  initMPU();
-
-  pinMode(LEFT_MOTOR_STEP_PIN, OUTPUT);
-  pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
-  pinMode(RIGHT_MOTOR_STEP_PIN, OUTPUT);
-  pinMode(RIGHT_MOTOR_DIR_PIN, OUTPUT);
-
-  digitalWrite(LEFT_MOTOR_STEP_PIN, LOW);
-  digitalWrite(LEFT_MOTOR_DIR_PIN, LOW);
-  digitalWrite(RIGHT_MOTOR_STEP_PIN, LOW);
-  digitalWrite(RIGHT_MOTOR_DIR_PIN, LOW);
-
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 5, true);
-  timerAlarmEnable(timer);  
-
-  setVelocity(0);
-}
-
-int angle_i = 0;
-
-void loop() {  
-  controlTask.loop();
-  loggerTask.loop();
-
-  if (mpu.update()) {
-    angle_buf[angle_i++] = mpu.getRoll();
-    angle_i = angle_i % ANGLE_AVG;
-  }
-}
-
