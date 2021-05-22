@@ -12,16 +12,17 @@ struct tuple_t {
 };
 
 typedef struct {
-  float x, y, z;
+  double x, y, z;
 } vector3d_t;
 
 typedef struct {
-  float roll, pitch;
+  double roll, pitch;
 } roll_pitch_t;
 
 class IMU {
 public:
   IMU(Adafruit_MPU6050 *mpu);
+  IMU(Adafruit_MPU6050 *mpu, double filter_alpha);
   tuple_t<vector3d_t, vector3d_t> calibrate(unsigned int samples_count, unsigned long delay_ms);
   void setAccelOffset(vector3d_t v);
   void setGyroOffset(vector3d_t v);
@@ -32,6 +33,7 @@ public:
 
 private:
   Adafruit_MPU6050 *_mpu;
+  double _alpha;
 
   vector3d_t _accel_offset = {.0, .0, .0};
   vector3d_t _gyro_offset = {.0, .0, .0};
@@ -39,9 +41,12 @@ private:
   vector3d_t _accel = {.0, .0, .0};
   vector3d_t _gyro = {.0, .0, .0};
 
-  float _gyro_roll = .0;
-  float _gyro_pitch = .0;
-  
+  double _gyro_roll = .0;
+  double _gyro_pitch = .0;
+
+  double _filtered_roll = .0;
+  double _filtered_pitch = .0;
+
   unsigned long _last_reading_us;
 };
 

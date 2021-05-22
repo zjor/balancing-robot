@@ -13,7 +13,7 @@ const float accel_offset[3] = {0.8864, -0.1769, -1.1098};
 const float gyro_offset[3] = {-0.0160, 0.0215, -0.0261};
 
 Adafruit_MPU6050 mpu;
-IMU imu(&mpu);
+IMU imu(&mpu, 0.95);
 
 roll_pitch_t getAccelRollPitch(float ax, float ay, float az) {
   const float alpha = 0.2;
@@ -79,8 +79,8 @@ void initMPU() {
 
 void calibrate() {  
 
-  imu.setAccelOffset({ -1.6946, 0.1172, -1.7420 });
-  imu.setGyroOffset({ -0.0253, 0.0051, -0.0071 });
+  imu.setAccelOffset({ -1.5999, 0.4344, -1.7590 });
+  imu.setGyroOffset({ -0.0254, 0.0050, -0.0075 });
   return;
 
   Serial.println("Calibrating...");
@@ -115,9 +115,17 @@ void setup(void) {
 
 void loop() {
   imu.update();
-  roll_pitch_t rp = imu.getGyroRollPitch();
+  // roll_pitch_t g_rp = imu.getGyroRollPitch();
+  roll_pitch_t a_rp = imu.getAccelRollPitch();
+  roll_pitch_t f_rp = imu.getFilteredRollPitch();
 
-  Serial.printf("%.4f\t%.4f\n", rp.roll, rp.pitch);
+  Serial.printf("%.4f\t%.4f\t%.4f\t%.4f\n", 
+    // g_rp.roll * RAD_TO_DEG, 
+    // g_rp.pitch * RAD_TO_DEG,
+    a_rp.roll * RAD_TO_DEG, 
+    a_rp.pitch * RAD_TO_DEG,
+    f_rp.roll * RAD_TO_DEG, 
+    f_rp.pitch * RAD_TO_DEG);
 
   delay(1);
 }

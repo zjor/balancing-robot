@@ -1,10 +1,16 @@
 #include "imu.h"
-#include "../util/logger.h"
 
-Logger _imu_logger(true);
+#define DEFAULT_ALPHA 0.98
 
 IMU::IMU(Adafruit_MPU6050 *mpu) {
   _mpu = mpu;
+  _alpha = DEFAULT_ALPHA;
+  _last_reading_us = micros();  
+}
+
+IMU::IMU(Adafruit_MPU6050 *mpu, double filter_alpha) {
+  _mpu = mpu;
+  _alpha = filter_alpha;
   _last_reading_us = micros();  
 }
 
@@ -49,7 +55,7 @@ void IMU::setGyroOffset(vector3d_t v) {
 
 void IMU::update() {
   unsigned long now_us = micros();
-  float dt = 1e-6 * (now_us - _last_reading_us);
+  double dt = 1e-6 * (now_us - _last_reading_us);
   _last_reading_us = now_us;
 
   sensors_event_t a, g, temp;  
@@ -67,9 +73,24 @@ void IMU::update() {
   };
 
   _gyro_roll += _gyro.x * dt;
-  _gyro_pitch += _gyro.y * dt;  
+  _gyro_pitch += _gyro.y * dt;
+
+  roll_pitch_t accel_rp = getAccelRollPitch();
+  _filtered_roll = _alpha * (_filtered_roll + _gyro.x * dt) + (1.0 - _alpha) * accel_rp.roll;
+  _filtered_pitch = _alpha * (_filtered_pitch + _gyro.y * dt) + (1.0 - _alpha) * accel_rp.pitch;
 }
 
 roll_pitch_t IMU::getGyroRollPitch() {
   return { _gyro_roll, _gyro_pitch };
+}
+
+roll_pitch_t IMU::getAccelRollPitch() {
+  return {
+    atan2(-_accel.x, _accel.z),
+    atan2(_accel.y, sqrt(_accel.x * _accel.x + _accel.z * _accel.z))
+  };
+}
+
+roll_pitch_t IMU::getFilteredRollPitch() {
+  return { _filtered_roll, _filtered_pitch };
 }
