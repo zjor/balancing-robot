@@ -16,18 +16,18 @@
 #define PULSE_WIDTH      1
 
 #define MAX_U     (200)
-#define MAX_V     (10)
+#define MAX_V     (12)
 #define SET_POINT (-2.2 * DEG_TO_RAD)
 
-#define ANGLE_Kp  800.0
-#define ANGLE_Kd  10.0
+#define ANGLE_Kp  900.0
+#define ANGLE_Kd  20.0
 #define ANGLE_Ki  0.0
 
 
 const bool shouldCalibrate = false;
 
 Adafruit_MPU6050 mpu;
-IMU imu(&mpu, 0.98);
+IMU imu(&mpu, 0.985);
 
 PID angle_pid(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, SET_POINT);
 PID velocity_pid(0.00, 0.0, 0.00, 0.0);
@@ -139,7 +139,9 @@ void updateVelocity(unsigned long now_us, unsigned long dt_us) {
   setVelocity(velocity);  
 }
 
-void setup(void) {  
+void setup(void) {
+  setCpuFrequencyMhz(240);
+
   Serial.begin(115200);
   Wire.begin();
   Wire.setClock(400000UL);
