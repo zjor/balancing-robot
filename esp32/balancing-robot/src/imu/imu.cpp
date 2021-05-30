@@ -77,7 +77,7 @@ void IMU::update() {
 
   roll_pitch_t accel_rp = getAccelRollPitch();
   _filtered_roll = _alpha * (_filtered_roll + _gyro.x * dt) + (1.0 - _alpha) * accel_rp.roll;
-  _filtered_pitch = _alpha * (_filtered_pitch + _gyro.y * dt) + (1.0 - _alpha) * accel_rp.pitch;
+  _filtered_pitch = _alpha * (_filtered_pitch - _gyro.y * dt) + (1.0 - _alpha) * accel_rp.pitch;
 }
 
 roll_pitch_t IMU::getGyroRollPitch() {
@@ -86,8 +86,8 @@ roll_pitch_t IMU::getGyroRollPitch() {
 
 roll_pitch_t IMU::getAccelRollPitch() {
   return {
-    atan2(-_accel.x, _accel.z),
-    atan2(_accel.y, sqrt(_accel.x * _accel.x + _accel.z * _accel.z))
+    atan2(-_accel.y, _accel.z),
+    atan2(_accel.x, sqrt(_accel.y * _accel.y + _accel.z * _accel.z))
   };
 }
 

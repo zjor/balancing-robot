@@ -5,26 +5,32 @@
 #include "TimedTask.h"
 
 
-#define RIGHT_MOTOR_STEP_PIN  15
-#define RIGHT_MOTOR_DIR_PIN   32
-#define LEFT_MOTOR_STEP_PIN   17
-#define LEFT_MOTOR_DIR_PIN    21
+#define RIGHT_MOTOR_STEP_PIN  12
+#define RIGHT_MOTOR_DIR_PIN   27
+#define LEFT_MOTOR_STEP_PIN   15
+#define LEFT_MOTOR_DIR_PIN    14
 
 #define PPR       1600
 
 #define TICKS_PER_SECOND 200000
-#define PULSE_WIDTH      2
+#define PULSE_WIDTH      1
 
-#define SET_POINT (-2.0 * DEG_TO_RAD)
+#define MAX_U     (200)
+#define MAX_V     (10)
+#define SET_POINT (-2.2 * DEG_TO_RAD)
+
+#define ANGLE_Kp  800.0
+#define ANGLE_Kd  10.0
+#define ANGLE_Ki  0.0
 
 
 const bool shouldCalibrate = false;
 
 Adafruit_MPU6050 mpu;
-IMU imu(&mpu, 0.95);
+IMU imu(&mpu, 0.98);
 
-PID angle_pid(25.0, 75.0, 0.0, SET_POINT);
-PID velocity_pid(0.001, 0.0, 0.0001, 0.0);
+PID angle_pid(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, SET_POINT);
+PID velocity_pid(0.00, 0.0, 0.00, 0.0);
 bool is_balancing = false;
 
 hw_timer_t * timer = NULL;
@@ -32,10 +38,9 @@ volatile uint32_t ticksPerPulse = TICKS_PER_SECOND;
 volatile uint32_t currentTick = 0;
 
 double angle;
-double angle_filtered = SET_POINT;
-double lp_alpha = 0.05;
 double angle_target = SET_POINT;
-double velocity;
+double velocity = 0.0;
+double u = 0.0;
 
 void initMPU() {
   if (!mpu.begin()) {
@@ -47,7 +52,7 @@ void initMPU() {
 
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_10_HZ);
+  mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
 }
 
 void calibrate() {  
@@ -70,10 +75,11 @@ int getTicksPerPulse(float velocity) {
   }  
 }
 
-void setVelocity(float velocity) {
-  digitalWrite(LEFT_MOTOR_DIR_PIN, velocity > 0 ? HIGH : LOW);
-  digitalWrite(RIGHT_MOTOR_DIR_PIN, velocity < 0 ? HIGH : LOW);
-  ticksPerPulse = getTicksPerPulse(velocity);
+void setVelocity(float _velocity) {
+  // _velocity = -_velocity;
+  digitalWrite(RIGHT_MOTOR_DIR_PIN, _velocity < 0 ? HIGH : LOW);  
+  digitalWrite(LEFT_MOTOR_DIR_PIN, _velocity > 0 ? HIGH : LOW);
+  ticksPerPulse = getTicksPerPulse(_velocity);
 }
 
 void IRAM_ATTR onTimer() {
@@ -81,34 +87,35 @@ void IRAM_ATTR onTimer() {
     currentTick = 0;
   }
   if (currentTick == 0) {
-    digitalWrite(LEFT_MOTOR_STEP_PIN, HIGH);
     digitalWrite(RIGHT_MOTOR_STEP_PIN, HIGH);
-  } else if (currentTick == PULSE_WIDTH) {
-    digitalWrite(LEFT_MOTOR_STEP_PIN, LOW);
+    digitalWrite(LEFT_MOTOR_STEP_PIN, HIGH);
+  } else if (currentTick == PULSE_WIDTH) {    
     digitalWrite(RIGHT_MOTOR_STEP_PIN, LOW);
+    digitalWrite(LEFT_MOTOR_STEP_PIN, LOW);    
   }
   currentTick++; 
 }
 
-void log(unsigned long now_millis, unsigned long dt_millis) {
-  Serial.printf("lp_a:%.4f\tangle:%.4f\ttarget:%.4f\tvelocity:%.4f\n", 
-    angle_filtered * RAD_TO_DEG,
+void log(unsigned long now_us, unsigned long dt_us) {
+  Serial.printf("angle:%.4f\ttarget:%.4f\tvelocity:%.4f\tu:%.4f\n", 
     angle * RAD_TO_DEG, 
     angle_target * RAD_TO_DEG, 
-    velocity);
+    velocity,
+    u);
 }
 
-TimedTask loggerTask(log, 25);
+TimedTask loggerTask(log, 10 * 1000);
 
-void control(unsigned long now_millis, unsigned long dt_millis) {
-  float dt = dt_millis * 1e-3;
+void control(unsigned long now_us, unsigned long dt_us) {
+  float dt = dt_us * 1e-6;
 
-  if (abs(angle_filtered - angle_target) < PI / 18) {
+  if (abs(angle - angle_target) < PI / 18) {
     is_balancing = true;
   }
 
-  if (abs(angle_filtered - angle_target) > PI / 4) {
+  if (abs(angle - angle_target) > PI / 4) {
     is_balancing = false;
+    u = 0.0;
     velocity = 0.0;
     setVelocity(velocity);
   }
@@ -116,18 +123,26 @@ void control(unsigned long now_millis, unsigned long dt_millis) {
   if (!is_balancing) {
     return;
   }
-  angle_target = velocity_pid.getControl(-velocity, dt);
-  angle_pid.setTarget(angle_target);
+  // angle_target = velocity_pid.getControl(-velocity, dt);
+  // angle_pid.setTarget(angle_target);
 
-  float u = -angle_pid.getControl(angle_filtered, dt);
+  u = angle_pid.getControl(angle, dt);
+  u = constrain(u, -MAX_U, MAX_U);  
+}
+
+TimedTask controlTask(control, 1 * 1000);
+
+void updateVelocity(unsigned long now_us, unsigned long dt_us) {
+  float dt = dt_us * 1e-6;
   velocity += u * dt;
+  velocity = constrain(velocity, -MAX_V, MAX_V);
   setVelocity(velocity);  
 }
 
-TimedTask controlTask(control, 7);
-
-void setup(void) {
+void setup(void) {  
   Serial.begin(115200);
+  Wire.begin();
+  Wire.setClock(400000UL);
 
   pinMode(LEFT_MOTOR_STEP_PIN, OUTPUT);
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
@@ -139,7 +154,6 @@ void setup(void) {
   digitalWrite(RIGHT_MOTOR_STEP_PIN, LOW);
   digitalWrite(RIGHT_MOTOR_DIR_PIN, LOW);
 
-
   initMPU();
   calibrate();
 
@@ -148,19 +162,38 @@ void setup(void) {
   timerAlarmWrite(timer, 5, true);
   timerAlarmEnable(timer);  
 
+  u = 0.0;
+  velocity = 0.0;
   setVelocity(0.0);
 }
+
+unsigned long last_velocity_update_us = 0.0;
+
+// unsigned long ctr = 0;
+// int i = 1000;
 
 void loop() {
   if (shouldCalibrate) {
     return;
   }
+
+  unsigned long now = micros();
+  updateVelocity(now, (now - last_velocity_update_us));
+  // ctr += now - last_velocity_update_us;
+  last_velocity_update_us = now;
+
+  // i--;
+  // if (i == 0) {
+  //   ctr /= 1000;
+  //   Serial.println(ctr);
+  //   ctr = 0;
+  //   i = 1000;
+  // }
+
   loggerTask.loop();
   controlTask.loop();
   imu.update();
 
   roll_pitch_t f_rp = imu.getFilteredRollPitch();
-  angle = f_rp.roll;
-  angle_filtered = lp_alpha * angle + (1.0 - lp_alpha) * angle_filtered;
-
+  angle = -f_rp.pitch;
 }

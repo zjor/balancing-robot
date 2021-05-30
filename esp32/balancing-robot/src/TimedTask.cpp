@@ -2,18 +2,18 @@
 
 #include "TimedTask.h"
 
-TimedTask::TimedTask(t_func func, unsigned long delta_millis) {
-  _delta_millis = delta_millis;
+TimedTask::TimedTask(t_func func, unsigned long delta_us) {
+  _delta_us = delta_us;
   _func = func;
-  _last_millis = millis();
+  _last_us = micros();
 }
 
 void TimedTask::loop() {
-  unsigned long now = millis();
-  unsigned long dt = now - _last_millis;
+  unsigned long now = micros();
+  unsigned long dt = now - _last_us;
 
-  if (dt >= _delta_millis) {
+  if (dt >= _delta_us) {
     _func(now, dt);
-    _last_millis = now;
+    _last_us = now;
   }
 }

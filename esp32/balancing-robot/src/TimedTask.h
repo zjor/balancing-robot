@@ -3,19 +3,19 @@
 
 /**
  * Function receiving the following arguments:
- * - now - time in millis
- * - dt - elapsed millis from the prevoius invocation
+ * - now - time in micros
+ * - dt - elapsed micros from the prevoius invocation
  */
 typedef void (* t_func)(unsigned long, unsigned long);
 
 class TimedTask {
   public:
-    TimedTask(t_func func, unsigned long delta_millis);    
+    TimedTask(t_func func, unsigned long delta_us);
     void loop();
 
   private:
-    unsigned long _last_millis;
-    unsigned long _delta_millis;
+    unsigned long _last_us;
+    unsigned long _delta_us;
     t_func _func;
 };
 
