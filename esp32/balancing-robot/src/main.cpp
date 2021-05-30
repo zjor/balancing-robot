@@ -17,17 +17,16 @@
 
 #define MAX_U     (200)
 #define MAX_V     (12)
-#define SET_POINT (-2.2 * DEG_TO_RAD)
+#define SET_POINT (-3.5 * DEG_TO_RAD)
 
-#define ANGLE_Kp  900.0
-#define ANGLE_Kd  20.0
+#define ANGLE_Kp  1100.0
+#define ANGLE_Kd  10.0
 #define ANGLE_Ki  0.0
-
 
 const bool shouldCalibrate = false;
 
 Adafruit_MPU6050 mpu;
-IMU imu(&mpu, 0.985);
+IMU imu(&mpu, 0.99);
 
 PID angle_pid(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, SET_POINT);
 PID velocity_pid(0.00, 0.0, 0.00, 0.0);
@@ -76,7 +75,6 @@ int getTicksPerPulse(float velocity) {
 }
 
 void setVelocity(float _velocity) {
-  // _velocity = -_velocity;
   digitalWrite(RIGHT_MOTOR_DIR_PIN, _velocity < 0 ? HIGH : LOW);  
   digitalWrite(LEFT_MOTOR_DIR_PIN, _velocity > 0 ? HIGH : LOW);
   ticksPerPulse = getTicksPerPulse(_velocity);
