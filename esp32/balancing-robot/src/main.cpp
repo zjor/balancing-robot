@@ -142,7 +142,7 @@ void setup(void) {
 
   Serial.begin(115200);
   Wire.begin();
-  Wire.setClock(400000UL);
+  Wire.setClock(1000000UL);
 
   pinMode(LEFT_MOTOR_STEP_PIN, OUTPUT);
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
