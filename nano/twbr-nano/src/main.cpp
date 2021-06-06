@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <MPU6050_light.h>
 
+#include "pid/PID.h"
+
 #define MOT_A_STEP  9
 #define MOT_A_DIR   8
 #define MOT_B_STEP  7
@@ -11,7 +13,15 @@
 #define TICKS_PER_SECOND  100000 // 100kHz
 #define PULSE_WIDTH 1
 
+#define MAX_ACCEL (200)
+#define ANGLE_Kp  350.0
+#define ANGLE_Kd  15.0
+#define ANGLE_Ki  0.0
+
+#define ANGLE_SET_POINT 0.0
+
 MPU6050 mpu(Wire);
+PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
 
 const float accOffsets[] = { 0.02, 0.02, -0.11 };
 const float gyroOffsets[] = { -0.64, 1.18, -1.40 };
@@ -21,10 +31,20 @@ volatile unsigned long ticksPerPulse = UINT64_MAX;
 volatile float accel = 0.0;
 volatile float velocity = 0.0;
 
+bool isBalancing = false;
+
+float angle = 0.0;
+float targetAngle = 0.0;
+
+unsigned long lastUpdateMicros = 0;
+
+
+
 void initMPU() {
   Wire.begin();
   Wire.setClock(1000000UL);
   byte status = mpu.begin(0, 0);
+  mpu.setFilterAccCoef(0.01);
   if (status != 0) {
     Serial.println("MPU init failed");
     while (1) { delay(100); }
@@ -78,24 +98,57 @@ void initMotors() {
   digitalWrite(MOT_B_STEP, LOW);
 }
 
-void setup() {
+void control(unsigned long dt_us) {
+  float dt = ((float) dt_us) * 1e-6;
 
+  if (abs(angle - targetAngle) < PI / 18) {
+    isBalancing = true;
+  }
+
+  if (abs(angle - targetAngle) > PI / 4) {
+    isBalancing = false;
+    accel = 0.0;
+    velocity = 0.0;
+  }
+
+  if (!isBalancing) {
+    return;
+  }
+  // angle_target = velocity_pid.getControl(-velocity, dt);
+  // angle_pid.setTarget(angle_target);
+
+  accel = anglePID.getControl(angle, dt);
+  accel = constrain(accel, -MAX_ACCEL, MAX_ACCEL);    
+}
+
+void log() {
+  Serial.print("t:");
+  Serial.print(millis());
+  Serial.print("a:");
+  Serial.print(angle * RAD_TO_DEG, 4);
+  Serial.print("\tv:");
+  Serial.print(velocity, 4);
+  Serial.print("\tu:");
+  Serial.println(accel, 4);
+}
+
+void setup() {
   Serial.begin(115200);
   initMPU();
   setTimers();
   initMotors();
-
 }
 
-unsigned long lastUpdateMicros = 0;
 
 void loop() {
   mpu.update();
   unsigned long now = micros();
-  if (now - lastUpdateMicros > 10000) {
-    accel = mpu.getAngleY();
+  if (now - lastUpdateMicros > 1000) {
+    angle = -mpu.getAngleY() * DEG_TO_RAD;
+    control(now - lastUpdateMicros);
     lastUpdateMicros = now;
   }
+  // log();
 }
 
 /**
