@@ -10,7 +10,7 @@
 #define MOT_B_DIR   6
 
 #define PPR   1600
-#define TICKS_PER_SECOND  100000 // 100kHz
+#define TICKS_PER_SECOND  25000 // 25kHz
 #define PULSE_WIDTH 1
 
 #define MAX_ACCEL (200)
@@ -84,8 +84,8 @@ void setTimer2(int ocra) {
 
 void setTimers() {
   cli();
-  setTimer1(19); // 100kHz
-  setTimer2(49); //5kHz
+  setTimer1(79); // 25kHz
+  // setTimer2(24); //5kHz
   sei();
 }
 
@@ -98,8 +98,48 @@ void initMotors() {
   digitalWrite(MOT_B_STEP, LOW);
 }
 
-void control(unsigned long dt_us) {
-  float dt = ((float) dt_us) * 1e-6;
+void log(unsigned long nowMicros) {
+  static unsigned long timestamp = micros();  
+  if (nowMicros - timestamp < 10000 /* 100Hz */) {
+    return;
+  }
+  Serial.print("a:");
+  Serial.print(angle * RAD_TO_DEG, 4);
+  Serial.print("\tv:");
+  Serial.print(velocity, 4);
+  Serial.print("\tu:");
+  Serial.println(accel, 4);  
+  timestamp = nowMicros;   
+}
+
+void updateVelocity(unsigned long nowMicros) {
+  static unsigned long timestamp = micros();
+  if (nowMicros - timestamp < 100 /* 10kHz */) {
+    return;
+  }
+
+  float dt = ((float) (nowMicros - timestamp)) * 1e-6;
+  velocity += accel * dt;
+  if (abs(velocity) < 1e-3) {
+    ticksPerPulse = UINT64_MAX;
+  } else {
+    ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
+  }
+  digitalWrite(MOT_A_DIR, velocity > 0 ? HIGH : LOW);
+  digitalWrite(MOT_B_DIR, -velocity > 0 ? HIGH : LOW);  
+
+  timestamp = nowMicros;
+}
+
+void updateControl(unsigned long nowMicros) {
+  static unsigned long timestamp = micros();
+  if (nowMicros - timestamp < 1000 /* 1kHz */) {
+    return;
+  }
+  mpu.update();
+  angle = -mpu.getAngleY() * DEG_TO_RAD;
+
+  float dt = ((float) (nowMicros - timestamp)) * 1e-6;
 
   if (abs(angle - targetAngle) < PI / 18) {
     isBalancing = true;
@@ -118,18 +158,9 @@ void control(unsigned long dt_us) {
   // angle_pid.setTarget(angle_target);
 
   accel = anglePID.getControl(angle, dt);
-  accel = constrain(accel, -MAX_ACCEL, MAX_ACCEL);    
-}
+  accel = constrain(accel, -MAX_ACCEL, MAX_ACCEL);
 
-void log() {
-  Serial.print("t:");
-  Serial.print(millis());
-  Serial.print("a:");
-  Serial.print(angle * RAD_TO_DEG, 4);
-  Serial.print("\tv:");
-  Serial.print(velocity, 4);
-  Serial.print("\tu:");
-  Serial.println(accel, 4);
+  timestamp = nowMicros;
 }
 
 void setup() {
@@ -139,16 +170,11 @@ void setup() {
   initMotors();
 }
 
-
-void loop() {
-  mpu.update();
+void loop() {  
   unsigned long now = micros();
-  if (now - lastUpdateMicros > 1000) {
-    angle = -mpu.getAngleY() * DEG_TO_RAD;
-    control(now - lastUpdateMicros);
-    lastUpdateMicros = now;
-  }
-  // log();
+  updateVelocity(now);
+  updateControl(now);
+  log(now);
 }
 
 /**
@@ -173,13 +199,13 @@ ISR(TIMER1_COMPA_vect) {
 /**
  * Velocity update interrupt handler
  */
-ISR(TIMER2_COMPA_vect) {
-  velocity += accel * 2e-4;
-  if (abs(velocity) < 1e-3) {
-    ticksPerPulse = UINT64_MAX;
-  } else {
-    ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
-  }
-  digitalWrite(MOT_A_DIR, velocity > 0 ? HIGH : LOW);
-  digitalWrite(MOT_B_DIR, -velocity > 0 ? HIGH : LOW);
-}
+// ISR(TIMER2_COMPA_vect) {
+//   velocity += accel;
+//   if (abs(velocity) < 1e-3) {
+//     ticksPerPulse = UINT64_MAX;
+//   } else {
+//     ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
+//   }
+//   digitalWrite(MOT_A_DIR, velocity > 0 ? HIGH : LOW);
+//   digitalWrite(MOT_B_DIR, -velocity > 0 ? HIGH : LOW);
+// }
