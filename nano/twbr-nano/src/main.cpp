@@ -10,15 +10,15 @@
 #define MOT_B_DIR   6
 
 #define PPR   1600
-#define TICKS_PER_SECOND  25000 // 25kHz
+#define TICKS_PER_SECOND  50000 // 50kHz
 #define PULSE_WIDTH 1
 
 #define MAX_ACCEL (200)
-#define ANGLE_Kp  350.0
-#define ANGLE_Kd  15.0
+#define ANGLE_Kp  450.0
+#define ANGLE_Kd  25.0
 #define ANGLE_Ki  0.0
 
-#define ANGLE_SET_POINT 0.0
+#define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
 MPU6050 mpu(Wire);
 PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
@@ -72,20 +72,9 @@ void setTimer1(int ocra) {
   TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
 }
 
-void setTimer2(int ocra) {
-  TCCR2A = 0; // set entire TCCR1A register to 0
-  TCCR2B = 0; // same for TCCR1B
-  TCNT2  = 0; // initialize counter value to 0  
-  OCR2A = ocra;
-  TCCR2A |= (1 << WGM21); // turn on CTC mode
-  TCCR2B |= (1 << CS22);  // set prescaler to 64  
-  TIMSK2 |= (1 << OCIE2A);  // enable timer compare interrupt
-}
-
 void setTimers() {
   cli();
-  setTimer1(79); // 25kHz
-  // setTimer2(24); //5kHz
+  setTimer1(39); // 50kHz
   sei();
 }
 
@@ -174,7 +163,7 @@ void loop() {
   unsigned long now = micros();
   updateVelocity(now);
   updateControl(now);
-  log(now);
+  // log(now);
 }
 
 /**
