@@ -4,8 +4,11 @@
 
 #include "pid/PID.h"
 
+// PORTB, bit 1, PB1
 #define MOT_A_STEP  9
 #define MOT_A_DIR   8
+
+// PORTD, bit 7, PD7
 #define MOT_B_STEP  7
 #define MOT_B_DIR   6
 
@@ -102,10 +105,21 @@ void log(unsigned long nowMicros) {
 }
 
 void updateVelocity(unsigned long nowMicros) {
+  // static unsigned long counter = 0;
+  // static unsigned long sum = 0;
+
   static unsigned long timestamp = micros();
   if (nowMicros - timestamp < 100 /* 10kHz */) {
     return;
   }
+
+  // sum += (nowMicros - timestamp);
+  // counter++;
+  // if (counter >= 1000) {
+  //   Serial.println(((float)(sum)) / counter);
+  //   counter = 0;
+  //   sum = 0;
+  // }
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
   velocity += accel * dt;
@@ -114,8 +128,13 @@ void updateVelocity(unsigned long nowMicros) {
   } else {
     ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
   }
-  digitalWrite(MOT_A_DIR, velocity > 0 ? HIGH : LOW);
-  digitalWrite(MOT_B_DIR, -velocity > 0 ? HIGH : LOW);  
+  if (velocity > 0) {
+    PORTB |= _BV(PB0);  // digitalWrite(MOT_A_DIR, HIGH);
+    PORTD &= ~_BV(PD6); // digitalWrite(MOT_B_DIR, LOW);  
+  } else {
+    PORTB &= ~_BV(PB0);  // digitalWrite(MOT_A_DIR, LOW);
+    PORTD |= _BV(PD6);  // digitalWrite(MOT_B_DIR, HIGH);  
+  }
 
   timestamp = nowMicros;
 }
@@ -175,26 +194,12 @@ ISR(TIMER1_COMPA_vect) {
   }
 
   if (currentTick == 0) {
-    digitalWrite(MOT_A_STEP, HIGH);
-    digitalWrite(MOT_B_STEP, HIGH);
+    PORTD |= _BV(PD7); // digitalWrite(MOT_B_STEP, HIGH);
+    PORTB |= _BV(PB1); // digitalWrite(MOT_A_STEP, HIGH);
   } else if (currentTick == PULSE_WIDTH) {
-    digitalWrite(MOT_A_STEP, LOW);
-    digitalWrite(MOT_B_STEP, LOW);
+    PORTD &= ~_BV(PD7); // digitalWrite(MOT_B_STEP, LOW);
+    PORTB &= ~_BV(PB1); // digitalWrite(MOT_A_STEP, LOW);    
   }
   
   currentTick++;
 }
-
-/**
- * Velocity update interrupt handler
- */
-// ISR(TIMER2_COMPA_vect) {
-//   velocity += accel;
-//   if (abs(velocity) < 1e-3) {
-//     ticksPerPulse = UINT64_MAX;
-//   } else {
-//     ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
-//   }
-//   digitalWrite(MOT_A_DIR, velocity > 0 ? HIGH : LOW);
-//   digitalWrite(MOT_B_DIR, -velocity > 0 ? HIGH : LOW);
-// }
