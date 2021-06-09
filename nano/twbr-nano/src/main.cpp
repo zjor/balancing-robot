@@ -13,18 +13,23 @@
 #define MOT_B_DIR   6
 
 #define PPR   1600
-#define TICKS_PER_SECOND  16000 // 16kHz
+#define TICKS_PER_SECOND  40000 // 40kHz
 #define PULSE_WIDTH 1
 
 #define MAX_ACCEL (200)
 #define ANGLE_Kp  450.0
-#define ANGLE_Kd  25.0
+#define ANGLE_Kd  20.0
 #define ANGLE_Ki  0.0
+
+#define VELOCITY_Kp  0.001
+#define VELOCITY_Kd  0.0
+#define VELOCITY_Ki  0.007
 
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
 MPU6050 mpu(Wire);
 PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
+PID velocityPID(VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki, 0.0);
 
 const float accOffsets[] = { 0.02, 0.02, -0.11 };
 const float gyroOffsets[] = { -0.64, 1.18, -1.40 };
@@ -37,7 +42,7 @@ volatile float velocity = 0.0;
 bool isBalancing = false;
 
 float angle = 0.0;
-float targetAngle = 0.0;
+float targetAngle = ANGLE_SET_POINT;
 
 unsigned long lastUpdateMicros = 0;
 
@@ -77,7 +82,7 @@ void setTimer1(int ocra) {
 
 void setTimers() {
   cli();
-  setTimer1(124); // 16kHz
+  setTimer1(49); // 40kHz
   sei();
 }
 
@@ -95,7 +100,9 @@ void log(unsigned long nowMicros) {
   if (nowMicros - timestamp < 10000 /* 100Hz */) {
     return;
   }
-  Serial.print("a:");
+  Serial.print("a0:");
+  Serial.print(targetAngle * RAD_TO_DEG, 4);
+  Serial.print("\ta:");
   Serial.print(angle * RAD_TO_DEG, 4);
   Serial.print("\tv:");
   Serial.print(velocity, 4);
@@ -162,8 +169,8 @@ void updateControl(unsigned long nowMicros) {
   if (!isBalancing) {
     return;
   }
-  // angle_target = velocity_pid.getControl(-velocity, dt);
-  // angle_pid.setTarget(angle_target);
+  targetAngle = -velocityPID.getControl(velocity, dt);
+  anglePID.setTarget(targetAngle);
 
   accel = anglePID.getControl(angle, dt);
   accel = constrain(accel, -MAX_ACCEL, MAX_ACCEL);
