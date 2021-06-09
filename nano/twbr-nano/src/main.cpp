@@ -13,7 +13,7 @@
 #define MOT_B_DIR   6
 
 #define PPR   1600
-#define TICKS_PER_SECOND  50000 // 50kHz
+#define TICKS_PER_SECOND  16000 // 16kHz
 #define PULSE_WIDTH 1
 
 #define MAX_ACCEL (200)
@@ -77,7 +77,7 @@ void setTimer1(int ocra) {
 
 void setTimers() {
   cli();
-  setTimer1(39); // 50kHz
+  setTimer1(124); // 16kHz
   sei();
 }
 
