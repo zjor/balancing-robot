@@ -29,6 +29,7 @@
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
 #define OUTPUT_READABLE_YAWPITCHROLL
+// #define COUNT_LOOP
 
 MPU6050 mpu;
 bool dmpReady = false;  
@@ -171,7 +172,7 @@ void updateControl(unsigned long nowMicros) {
     return;
   }
   mpuUpdate();
-  angle = -ypr[1];
+  angle = ypr[1];
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
 
@@ -209,6 +210,18 @@ void loop() {
   updateVelocity(now);
   updateControl(now);
   // log(now);
+
+  #ifdef COUNT_LOOP
+    static unsigned long last_ts = micros();
+    static unsigned long  counter = 0;
+
+    counter++;
+    if (now - last_ts >= 1000000) {
+      Serial.println(counter);
+      counter = 0;
+      last_ts = now;
+    }
+  #endif
 }
 
 /**
