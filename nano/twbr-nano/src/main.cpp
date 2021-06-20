@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Arduino.h>
-#include <MPU6050_light.h>
+#include "I2Cdev.h"
+#include "MPU6050_6Axis_MotionApps20.h"
 
 #include "pid/PID.h"
 
@@ -25,9 +26,22 @@
 #define VELOCITY_Kd  0.0
 #define VELOCITY_Ki  0.007
 
+#define WARMUP_DELAY_US (5000000UL)
+
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
-MPU6050 mpu(Wire);
+#define OUTPUT_READABLE_YAWPITCHROLL
+// #define COUNT_LOOP
+// #define LOGGING_ENABLED
+
+MPU6050 mpu;
+bool dmpReady = false;  
+uint8_t fifoBuffer[64];
+
+Quaternion q;           // [w, x, y, z]         quaternion container
+VectorFloat gravity;    // [x, y, z]            gravity vector
+float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+
 PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
 PID velocityPID(VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki, 0.0);
 
@@ -46,28 +60,29 @@ float targetAngle = ANGLE_SET_POINT;
 
 unsigned long lastUpdateMicros = 0;
 
-
-
 void initMPU() {
+  const int16_t accel_offset[3] = { -1262, -307, 1897 };
+  const int16_t gyro_offset[3] = { 23, -41, 49 };
+
   Wire.begin();
   Wire.setClock(1000000UL);
-  byte status = mpu.begin(0, 0);
-  mpu.setFilterAccCoef(0.01);
-  if (status != 0) {
-    Serial.println("MPU init failed");
-    while (1) { delay(100); }
+  mpu.initialize();
+
+  if (!mpu.testConnection()) {
+    Serial.println(F("MPU6050 connection failed"));
+    while(1) {}
   }
 
-  // mpu.calcOffsets();
-  // Serial.println(mpu.getAccXoffset());
-  // Serial.println(mpu.getAccYoffset());
-  // Serial.println(mpu.getAccZoffset());
+  mpu.dmpInitialize();
 
-  // Serial.println(mpu.getGyroXoffset());
-  // Serial.println(mpu.getGyroYoffset());
-  // Serial.println(mpu.getGyroZoffset());
-  mpu.setAccOffsets(accOffsets[0], accOffsets[1], accOffsets[2]);
-  mpu.setGyroOffsets(gyroOffsets[0], gyroOffsets[1], gyroOffsets[2]);
+  mpu.setXGyroOffset(gyro_offset[0]);
+  mpu.setYGyroOffset(gyro_offset[1]);
+  mpu.setZGyroOffset(gyro_offset[2]);
+  mpu.setXAccelOffset(accel_offset[0]);
+  mpu.setYAccelOffset(accel_offset[1]);
+  mpu.setZAccelOffset(accel_offset[2]);
+
+  mpu.setDMPEnabled(true);
 }
 
 void setTimer1(int ocra) {  
@@ -95,7 +110,7 @@ void initMotors() {
   digitalWrite(MOT_B_STEP, LOW);
 }
 
-void log(unsigned long nowMicros) {
+void log(unsigned long nowMicros) {  
   static unsigned long timestamp = micros();  
   if (nowMicros - timestamp < 10000 /* 100Hz */) {
     return;
@@ -109,6 +124,16 @@ void log(unsigned long nowMicros) {
   Serial.print("\tu:");
   Serial.println(accel, 4);  
   timestamp = nowMicros;   
+}
+
+bool mpuUpdate() {
+  if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+    mpu.dmpGetQuaternion(&q, fifoBuffer);
+    mpu.dmpGetGravity(&gravity, &q);
+    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    return true;
+  }
+  return false;
 }
 
 void updateVelocity(unsigned long nowMicros) {
@@ -147,12 +172,18 @@ void updateVelocity(unsigned long nowMicros) {
 }
 
 void updateControl(unsigned long nowMicros) {
+  if (nowMicros < WARMUP_DELAY_US) {
+    return;
+  }
+
   static unsigned long timestamp = micros();
   if (nowMicros - timestamp < 1000 /* 1kHz */) {
     return;
   }
-  mpu.update();
-  angle = -mpu.getAngleY() * DEG_TO_RAD;
+  if (!mpuUpdate()) {
+    return;
+  }
+  angle = ypr[1];
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
 
@@ -189,7 +220,21 @@ void loop() {
   unsigned long now = micros();
   updateVelocity(now);
   updateControl(now);
-  // log(now);
+  #ifdef LOGGING_ENABLED
+    log(now);
+  #endif
+
+  #ifdef COUNT_LOOP
+    static unsigned long last_ts = micros();
+    static unsigned long  counter = 0;
+
+    counter++;
+    if (now - last_ts >= 1000000) {
+      Serial.println(counter);
+      counter = 0;
+      last_ts = now;
+    }
+  #endif
 }
 
 /**
