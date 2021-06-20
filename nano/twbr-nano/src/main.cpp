@@ -26,10 +26,13 @@
 #define VELOCITY_Kd  0.0
 #define VELOCITY_Ki  0.007
 
+#define WARMUP_DELAY_US (5000000UL)
+
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
 #define OUTPUT_READABLE_YAWPITCHROLL
 // #define COUNT_LOOP
+// #define LOGGING_ENABLED
 
 MPU6050 mpu;
 bool dmpReady = false;  
@@ -107,7 +110,7 @@ void initMotors() {
   digitalWrite(MOT_B_STEP, LOW);
 }
 
-void log(unsigned long nowMicros) {
+void log(unsigned long nowMicros) {  
   static unsigned long timestamp = micros();  
   if (nowMicros - timestamp < 10000 /* 100Hz */) {
     return;
@@ -123,12 +126,14 @@ void log(unsigned long nowMicros) {
   timestamp = nowMicros;   
 }
 
-void mpuUpdate() {
+bool mpuUpdate() {
   if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    return true;
   }
+  return false;
 }
 
 void updateVelocity(unsigned long nowMicros) {
@@ -167,11 +172,17 @@ void updateVelocity(unsigned long nowMicros) {
 }
 
 void updateControl(unsigned long nowMicros) {
+  if (nowMicros < WARMUP_DELAY_US) {
+    return;
+  }
+
   static unsigned long timestamp = micros();
   if (nowMicros - timestamp < 1000 /* 1kHz */) {
     return;
   }
-  mpuUpdate();
+  if (!mpuUpdate()) {
+    return;
+  }
   angle = ypr[1];
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
@@ -209,7 +220,9 @@ void loop() {
   unsigned long now = micros();
   updateVelocity(now);
   updateControl(now);
-  // log(now);
+  #ifdef LOGGING_ENABLED
+    log(now);
+  #endif
 
   #ifdef COUNT_LOOP
     static unsigned long last_ts = micros();
