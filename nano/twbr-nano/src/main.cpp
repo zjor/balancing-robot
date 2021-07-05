@@ -13,6 +13,8 @@
 #define MOT_B_STEP  7
 #define MOT_B_DIR   6
 
+#define INTERRUPT_PIN 2
+
 #define PPR   1600
 #define TICKS_PER_SECOND  40000 // 40kHz
 #define PULSE_WIDTH 1
@@ -22,9 +24,9 @@
 #define ANGLE_Kd  20.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.001
+#define VELOCITY_Kp  0.0008
 #define VELOCITY_Kd  0.0
-#define VELOCITY_Ki  0.007
+#define VELOCITY_Ki  0.005
 
 #define WARMUP_DELAY_US (5000000UL)
 
@@ -35,18 +37,21 @@
 // #define LOGGING_ENABLED
 
 MPU6050 mpu;
-bool dmpReady = false;  
+bool dmpReady = false;
+uint8_t mpuIntStatus;  
 uint8_t fifoBuffer[64];
 
 Quaternion q;           // [w, x, y, z]         quaternion container
 VectorFloat gravity;    // [x, y, z]            gravity vector
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
+volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+void dmpDataReady() {
+    mpuInterrupt = true;
+}
+
 PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
 PID velocityPID(VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki, 0.0);
-
-const float accOffsets[] = { 0.02, 0.02, -0.11 };
-const float gyroOffsets[] = { -0.64, 1.18, -1.40 };
 
 volatile unsigned long currentTick = 0UL;
 volatile unsigned long ticksPerPulse = UINT64_MAX;
@@ -67,6 +72,7 @@ void initMPU() {
   Wire.begin();
   Wire.setClock(1000000UL);
   mpu.initialize();
+  pinMode(INTERRUPT_PIN, INPUT);
 
   if (!mpu.testConnection()) {
     Serial.println(F("MPU6050 connection failed"));
@@ -83,6 +89,7 @@ void initMPU() {
   mpu.setZAccelOffset(accel_offset[2]);
 
   mpu.setDMPEnabled(true);
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
 }
 
 void setTimer1(int ocra) {  
@@ -127,10 +134,11 @@ void log(unsigned long nowMicros) {
 }
 
 bool mpuUpdate() {
-  if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+  if (mpuInterrupt && mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    mpuInterrupt = false;
     return true;
   }
   return false;
