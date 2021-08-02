@@ -24,9 +24,9 @@
 #define ANGLE_Kd  20.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.0008
+#define VELOCITY_Kp  0.007
 #define VELOCITY_Kd  0.0
-#define VELOCITY_Ki  0.005
+#define VELOCITY_Ki  0.0005
 
 #define WARMUP_DELAY_US (5000000UL)
 
@@ -35,6 +35,8 @@
 #define OUTPUT_READABLE_YAWPITCHROLL
 // #define COUNT_LOOP
 // #define LOGGING_ENABLED
+
+#define NANO_BLE
 
 MPU6050 mpu;
 bool dmpReady = false;
@@ -62,6 +64,8 @@ bool isBalancing = false;
 
 float angle = 0.0;
 float targetAngle = ANGLE_SET_POINT;
+
+float targetVelocity = 0.0;
 
 unsigned long lastUpdateMicros = 0;
 
@@ -180,6 +184,7 @@ void updateVelocity(unsigned long nowMicros) {
 }
 
 void updateControl(unsigned long nowMicros) {
+  /* Wait until IMU filter will settle */
   if (nowMicros < WARMUP_DELAY_US) {
     return;
   }
@@ -219,6 +224,9 @@ void updateControl(unsigned long nowMicros) {
 
 void setup() {
   Serial.begin(115200);
+  #ifdef NANO_BLE
+    Serial.print("AT+BAUD=4\r\n");
+  #endif
   initMPU();
   setTimers();
   initMotors();
@@ -243,6 +251,29 @@ void loop() {
       last_ts = now;
     }
   #endif
+
+  if (Serial.available()) {
+    const float dv = 0.5;
+    int command = Serial.read();    
+    switch (command) {
+    case '1':
+      Serial.println("Slowly moving forward");
+      targetVelocity += dv;
+      velocityPID.setTarget(targetVelocity);
+      break;
+    case '2':
+      Serial.println("Slowly moving backwards");
+      targetVelocity -= dv;
+      velocityPID.setTarget(targetVelocity);
+      break;
+    case '3':
+      Serial.println("Stopping");
+      targetVelocity = 0.0;
+      velocityPID.setTarget(targetVelocity);
+      break;
+    }    
+  }
+
 }
 
 /**
