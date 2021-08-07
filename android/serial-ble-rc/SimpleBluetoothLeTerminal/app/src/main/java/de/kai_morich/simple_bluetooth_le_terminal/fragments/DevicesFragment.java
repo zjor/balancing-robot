@@ -1,4 +1,4 @@
-package de.kai_morich.simple_bluetooth_le_terminal;
+package de.kai_morich.simple_bluetooth_le_terminal.fragments;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -16,9 +16,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.ListFragment;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -28,8 +25,14 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.ListFragment;
+
 import java.util.ArrayList;
 import java.util.Collections;
+
+import de.kai_morich.simple_bluetooth_le_terminal.R;
 
 /**
  * show list of BLE devices
@@ -126,7 +129,10 @@ public class DevicesFragment extends ListFragment {
     @Override
     public void onResume() {
         super.onResume();
+
         getActivity().registerReceiver(discoveryBroadcastReceiver, discoveryIntentFilter);
+        getActivity().setTitle(R.string.devices_title);
+
         if(bluetoothAdapter == null) {
             setEmptyText("<bluetooth LE not supported>");
         } else if(!bluetoothAdapter.isEnabled()) {
@@ -282,7 +288,10 @@ public class DevicesFragment extends ListFragment {
         args.putString("device", device.getAddress());
         Fragment fragment = new TerminalFragment();
         fragment.setArguments(args);
-        getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
+        getParentFragmentManager().beginTransaction()
+                .replace(R.id.fragment, fragment, "terminal")
+                .addToBackStack(null)
+                .commit();
     }
 
     /**

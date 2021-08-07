@@ -12,14 +12,14 @@ import androidx.annotation.ColorInt;
 
 import java.io.ByteArrayOutputStream;
 
-final class TextUtil {
+public final class TextUtil {
 
     @ColorInt static int caretBackground = 0xff666666;
 
-    final static String newline_crlf = "\r\n";
-    final static String newline_lf = "\n";
+    public final static String newline_crlf = "\r\n";
+    public final static String newline_lf = "\n";
 
-    static byte[] fromHexString(final CharSequence s) {
+    public static byte[] fromHexString(final CharSequence s) {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         byte b = 0;
         int nibble = 0;
@@ -39,21 +39,21 @@ final class TextUtil {
         return buf.toByteArray();
     }
 
-    static String toHexString(final byte[] buf) {
+    public static String toHexString(final byte[] buf) {
         return toHexString(buf, 0, buf.length);
     }
 
-    static String toHexString(final byte[] buf, int begin, int end) {
+    public static String toHexString(final byte[] buf, int begin, int end) {
         StringBuilder sb = new StringBuilder(3*(end-begin));
         toHexString(sb, buf, begin, end);
         return sb.toString();
     }
 
-    static void toHexString(StringBuilder sb, final byte[] buf) {
+    public static void toHexString(StringBuilder sb, final byte[] buf) {
         toHexString(sb, buf, 0, buf.length);
     }
 
-    static void toHexString(StringBuilder sb, final byte[] buf, int begin, int end) {
+    public static void toHexString(StringBuilder sb, final byte[] buf, int begin, int end) {
         for(int pos=begin; pos<end; pos++) {
             if(sb.length()>0)
                 sb.append(' ');
@@ -72,11 +72,11 @@ final class TextUtil {
     /**
      * use https://en.wikipedia.org/wiki/Caret_notation to avoid invisible control characters
      */
-    static CharSequence toCaretString(CharSequence s, boolean keepNewline) {
+    public static CharSequence toCaretString(CharSequence s, boolean keepNewline) {
         return toCaretString(s, keepNewline, s.length());
     }
 
-    static CharSequence toCaretString(CharSequence s, boolean keepNewline, int length) {
+    public static CharSequence toCaretString(CharSequence s, boolean keepNewline, int length) {
         boolean found = false;
         for (int pos = 0; pos < length; pos++) {
             if (s.charAt(pos) < 32 && (!keepNewline ||s.charAt(pos)!='\n')) {
@@ -99,18 +99,18 @@ final class TextUtil {
     }
 
 
-    static class HexWatcher implements TextWatcher {
+    public static class HexWatcher implements TextWatcher {
 
         private final TextView view;
         private final StringBuilder sb = new StringBuilder();
         private boolean self = false;
         private boolean enabled = false;
 
-        HexWatcher(TextView view) {
+        public HexWatcher(TextView view) {
             this.view = view;
         }
 
-        void enable(boolean enable) {
+        public void enable(boolean enable) {
             if(enable) {
                 view.setInputType(InputType.TYPE_CLASS_TEXT + InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
             } else {

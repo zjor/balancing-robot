@@ -15,4 +15,10 @@
         android:title="HEX Mode"
         android:checkable="true"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/pid_settings"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:title="Settings"
+        app:showAsAction="always" />
+
 </menu>

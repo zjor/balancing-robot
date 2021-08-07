@@ -9,4 +9,32 @@
     <string name="location_denied_message">As location permission has not been granted, this app cannot scan for Bluetooth LE devices.</string>
     <string name="pairing_request">PAIRING requested\n-> Perform pairing steps. Connect again</string>
 
+    <!-- ActionBar Titles   -->
+    <string name="devices_title">BLE Devices</string>
+    <string name="pid_settings_title">PID Settings</string>
+    <string name="terminal_title">Serial Terminal</string>
+
+    <!-- PID Settings Labels -->
+    <string name="k_p">Kp</string>
+    <string name="k_d">Kd</string>
+    <string name="k_i">Ki</string>
+    <string name="k_p_hint">Proportional term</string>
+    <string name="k_d_hint">Derivative term</string>
+    <string name="k_i_hint">Integral term</string>
+
+    <!-- Preference Titles -->
+    <string name="messages_header">Messages</string>
+    <string name="sync_header">Sync</string>
+
+    <!-- Messages Preferences -->
+    <string name="signature_title">Your signature</string>
+    <string name="reply_title">Default reply action</string>
+
+    <!-- Sync Preferences -->
+    <string name="sync_title">Sync email periodically</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+
 </resources>

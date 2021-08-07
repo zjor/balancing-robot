@@ -1,4 +1,4 @@
-package de.kai_morich.simple_bluetooth_le_terminal;
+package de.kai_morich.simple_bluetooth_le_terminal.fragments;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -27,6 +27,12 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+
+import de.kai_morich.simple_bluetooth_le_terminal.R;
+import de.kai_morich.simple_bluetooth_le_terminal.SerialListener;
+import de.kai_morich.simple_bluetooth_le_terminal.SerialService;
+import de.kai_morich.simple_bluetooth_le_terminal.SerialSocket;
+import de.kai_morich.simple_bluetooth_le_terminal.TextUtil;
 
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
 
@@ -96,6 +102,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     @Override
     public void onResume() {
         super.onResume();
+        getActivity().setTitle(R.string.terminal_title);
         if(initialStart && service != null) {
             initialStart = false;
             getActivity().runOnUiThread(this::connect);
@@ -168,6 +175,13 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             hexWatcher.enable(hexEnabled);
             sendText.setHint(hexEnabled ? "HEX mode" : "");
             item.setChecked(hexEnabled);
+            return true;
+        } else if (id == R.id.pid_settings) {
+            PIDSettingsFragment fragment = new PIDSettingsFragment();
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment, fragment, PIDSettingsFragment.FRAGMENT_TAG)
+                    .addToBackStack(null)
+                    .commit();
             return true;
         } else {
             return super.onOptionsItemSelected(item);

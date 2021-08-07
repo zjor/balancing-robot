@@ -26,7 +26,7 @@ import java.util.UUID;
  *   - connect, disconnect and write as methods,
  *   - read + status is returned by SerialListener
  */
-class SerialSocket extends BluetoothGattCallback {
+public class SerialSocket extends BluetoothGattCallback {
 
     /**
      * delegate device specific behaviour to inner class
@@ -79,7 +79,7 @@ class SerialSocket extends BluetoothGattCallback {
     private boolean connected;
     private int payloadSize = DEFAULT_MTU-3;
 
-    SerialSocket(Context context, BluetoothDevice device) {
+    public SerialSocket(Context context, BluetoothDevice device) {
         if(context instanceof Activity)
             throw new InvalidParameterException("expected non UI context");
         this.context = context;
