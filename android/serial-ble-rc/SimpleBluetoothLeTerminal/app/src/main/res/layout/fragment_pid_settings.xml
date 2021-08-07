@@ -179,13 +179,13 @@
             <Button
                 android:id="@+id/pid_settings_button_cancel"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="64dp"
                 android:layout_weight="1"
                 android:text="Cancel"/>
             <Button
                 android:id="@+id/pid_settings_button_save"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="64dp"
                 android:layout_weight="1"
                 android:text="Save"/>
         </LinearLayout>
