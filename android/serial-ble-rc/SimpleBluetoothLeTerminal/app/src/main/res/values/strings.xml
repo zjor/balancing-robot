@@ -15,6 +15,8 @@
     <string name="terminal_title">Serial Terminal</string>
 
     <!-- PID Settings Labels -->
+    <string name="balance_loop_settings">Balance loop settings</string>
+    <string name="velocity_loop_settings">Velocity loop settings</string>
     <string name="k_p">Kp</string>
     <string name="k_d">Kd</string>
     <string name="k_i">Ki</string>
