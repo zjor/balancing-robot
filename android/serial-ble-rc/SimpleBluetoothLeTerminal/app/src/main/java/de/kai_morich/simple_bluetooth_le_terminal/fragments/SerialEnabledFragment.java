@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -18,6 +19,8 @@ import de.kai_morich.simple_bluetooth_le_terminal.SerialService;
 import de.kai_morich.simple_bluetooth_le_terminal.SerialSocket;
 
 public abstract class SerialEnabledFragment extends Fragment implements ServiceConnection, SerialListener {
+
+    private static final String TAG = SerialEnabledFragment.class.getSimpleName();
 
     protected enum ConnectionStatus {
         CONNECTED,
@@ -86,6 +89,8 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
 
     @Override
     public void onServiceConnected(ComponentName name, IBinder binder) {
+        Log.i(TAG, "onServiceConnected");
+
         service = ((SerialService.SerialBinder) binder).getService();
         service.attach(this);
         if(initialStart && isResumed()) {
@@ -99,7 +104,8 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
         service = null;
     }
 
-    private void connect() {
+    protected void connect() {
+        Log.i(TAG, "connect()");
         try {
             BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(deviceAddress);
@@ -111,13 +117,15 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
         }
     }
 
-    private void disconnect() {
+    protected void disconnect() {
+        Log.i(TAG, "disconnect()");
         connectionStatus = ConnectionStatus.NOT_CONNECTED;
         service.disconnect();
     }
 
     @Override
     public void onSerialConnect() {
+        Log.i(TAG, "onSerialConnect(): connected");
         connectionStatus = ConnectionStatus.CONNECTED;
     }
 

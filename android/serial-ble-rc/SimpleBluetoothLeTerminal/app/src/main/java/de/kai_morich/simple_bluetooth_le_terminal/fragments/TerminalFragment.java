@@ -96,7 +96,13 @@ public class TerminalFragment extends SerialEnabledFragment {
             item.setChecked(hexEnabled);
             return true;
         } else if (id == R.id.pid_settings) {
+            disconnect();
             PIDSettingsFragment fragment = new PIDSettingsFragment();
+
+            Bundle args = new Bundle();
+            args.putString("device", deviceAddress);
+            fragment.setArguments(args);
+
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment, fragment, PIDSettingsFragment.FRAGMENT_TAG)
                     .addToBackStack(null)
@@ -169,6 +175,7 @@ public class TerminalFragment extends SerialEnabledFragment {
      */
     @Override
     public void onSerialConnect() {
+        super.onSerialConnect();
         status("connected");
     }
 
