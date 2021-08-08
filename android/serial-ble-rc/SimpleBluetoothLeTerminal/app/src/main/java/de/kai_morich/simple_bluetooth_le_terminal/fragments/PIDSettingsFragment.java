@@ -84,7 +84,27 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
 
     @Override
     public void onSerialRead(byte[] data) {
-        Log.i(TAG, new String(data));
+        for (byte b: data) {
+            if (b == '\r') {
+                String packetStr = new String(packet, 0, packetSize);
+                Log.i(TAG, packetStr);
+                handlePacket(packetStr);
+                packetSize = 0;
+            } else if (b == '\n') {
+                continue;
+            } else {
+                packet[packetSize++] = b;
+            }
+        }
+    }
+
+    private void handlePacket(String packet) {
+        double[] settings = new double[6];
+        String[] split = packet.split(";");
+        for (int i = 0; i < split.length; i++) {
+            settings[i] = Double.parseDouble(split[i]);
+        }
+        applyPIDSettings(settings);
     }
 
     private void requestPIDSettings() {
