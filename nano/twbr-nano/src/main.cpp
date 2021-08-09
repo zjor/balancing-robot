@@ -38,6 +38,13 @@
 
 #define NANO_BLE
 
+/* BLE communication-related params */
+#define MAX_PACKET_SIZE 96
+#define DIVISOR 10000.0
+
+char packet[MAX_PACKET_SIZE];
+uint8_t packet_size = 0;
+
 MPU6050 mpu;
 bool dmpReady = false;
 uint8_t mpuIntStatus;  
@@ -55,6 +62,11 @@ void dmpDataReady() {
 PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
 PID velocityPID(VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki, 0.0);
 
+float pid_settings[6] = {
+  ANGLE_Kp, ANGLE_Kd, ANGLE_Ki,
+  VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki
+};
+
 volatile unsigned long currentTick = 0UL;
 volatile unsigned long ticksPerPulse = UINT64_MAX;
 volatile float accel = 0.0;
@@ -68,6 +80,11 @@ float targetAngle = ANGLE_SET_POINT;
 float targetVelocity = 0.0;
 
 unsigned long lastUpdateMicros = 0;
+
+void send_float_array(float *a, uint8_t size);
+void parse_float_array(char *p, uint8_t p_size, float *dest);
+void parse_settings(char *p, uint8_t p_size);
+void handle_packet(char *p, uint8_t p_size);
 
 void initMPU() {
   const int16_t accel_offset[3] = { -1262, -307, 1897 };
@@ -252,28 +269,17 @@ void loop() {
     }
   #endif
 
-  if (Serial.available()) {
-    const float dv = 0.5;
-    int command = Serial.read();    
-    switch (command) {
-    case '1':
-      Serial.println("Slowly moving forward");
-      targetVelocity += dv;
-      velocityPID.setTarget(targetVelocity);
-      break;
-    case '2':
-      Serial.println("Slowly moving backwards");
-      targetVelocity -= dv;
-      velocityPID.setTarget(targetVelocity);
-      break;
-    case '3':
-      Serial.println("Stopping");
-      targetVelocity = 0.0;
-      velocityPID.setTarget(targetVelocity);
-      break;
-    }    
+  while (Serial.available()) {
+    int c = Serial.read();
+    if (c == '\n') {
+        continue;
+    } else if (c == '\r') {
+        handle_packet(packet, packet_size);
+        packet_size = 0;
+    } else {
+        packet[packet_size++] = (uint8_t) c;
+    }
   }
-
 }
 
 /**
@@ -293,4 +299,56 @@ ISR(TIMER1_COMPA_vect) {
   }
   
   currentTick++;
+}
+
+void send_float_array(float *a, uint8_t size) {
+    for (int i = 0; i < size; i++) {
+        Serial.print((long)(a[i] * DIVISOR));
+        if (i < size - 1) {
+            Serial.print(';');
+        }
+    }
+    Serial.print("\r\n");
+}
+
+void parse_float_array(char *p, uint8_t p_size, float *dest) {
+    char buf[16];
+    long value;
+    uint8_t buf_size = 0;
+    uint8_t index = 0;
+    for (uint8_t i = 0; i < p_size; i++) {
+        if ((p[i] >= '0' && p[i] <= '9') || p[i] == '+' || p[i] == '-') {
+            buf[buf_size++] = p[i];
+        } else if (p[i] == ';') {
+            buf[buf_size] = '\0';
+            buf_size = 0;
+            value = atol(buf);
+            dest[index++] = ((float)value) / DIVISOR;
+        }
+    }
+    buf[buf_size] = '\0';
+    value = atol(buf);
+    dest[index] = ((float)value) / DIVISOR;
+}
+
+void parse_settings(char *p, uint8_t p_size) {
+    parse_float_array(p, p_size, pid_settings);
+    anglePID.setSettings(pid_settings[0], pid_settings[1], pid_settings[2]);
+    velocityPID.setSettings(pid_settings[3], pid_settings[4], pid_settings[5]);
+}
+
+void handle_packet(char *p, uint8_t p_size) {
+    switch (p[0]) {
+        case 'r':
+            send_float_array(pid_settings, 6);
+            break;
+        case 's':
+            parse_settings(&p[1], p_size - 1);
+            send_float_array(pid_settings, 6);
+            break;
+        // case 'c':
+        //     parse_control(&p[1], p_size - 1);
+        //     send_float_array(control, 2);
+        //     break;
+    }
 }
