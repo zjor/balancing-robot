@@ -6,7 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.TextView;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import de.kai_morich.simple_bluetooth_le_terminal.R;
 import de.kai_morich.simple_bluetooth_le_terminal.TextUtil;
@@ -26,8 +27,11 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
     public static final String FRAGMENT_TAG = "pid_settings";
 
     private static final String REQUEST_PID_SETTINGS_COMMAND = "r" + TextUtil.newline_crlf;
+    private static final double DIVISOR = 10000.0;
 
-    private List<TextView> pidSettings = new ArrayList<>();
+    private static final Pattern SETTINGS_PACKET_REGEX = Pattern.compile("^(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)$");
+
+    private List<EditText> pidSettings = new ArrayList<>();
 
     private Button cancelButton;
     private Button saveButton;
@@ -44,7 +48,7 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_pid_settings, container, false);
-        int[] ids = new int[] {
+        int[] ids = new int[]{
                 R.id.pid_balance_kp,
                 R.id.pid_balance_kd,
                 R.id.pid_balance_ki,
@@ -52,11 +56,12 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
                 R.id.pid_velocity_kd,
                 R.id.pid_velocity_ki,
         };
-        for (int id: ids) {
-            pidSettings.add((TextView) view.findViewById(id));
+        for (int id : ids) {
+            pidSettings.add((EditText) view.findViewById(id));
         }
 
         saveButton = (Button) view.findViewById(R.id.pid_settings_button_save);
+        saveButton.setOnClickListener(v -> savePIDSettings());
         cancelButton = (Button) view.findViewById(R.id.pid_settings_button_cancel);
 
         return view;
@@ -84,7 +89,7 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
 
     @Override
     public void onSerialRead(byte[] data) {
-        for (byte b: data) {
+        for (byte b : data) {
             if (b == '\r') {
                 String packetStr = new String(packet, 0, packetSize);
                 Log.i(TAG, packetStr);
@@ -99,10 +104,14 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
     }
 
     private void handlePacket(String packet) {
+        if (!SETTINGS_PACKET_REGEX.matcher(packet).matches()) {
+            Toast.makeText(getActivity(), "Unrecognized packet pattern: " + packet, Toast.LENGTH_SHORT).show();
+            return;
+        }
         double[] settings = new double[6];
         String[] split = packet.split(";");
         for (int i = 0; i < split.length; i++) {
-            settings[i] = Double.parseDouble(split[i]);
+            settings[i] = Double.parseDouble(split[i]) / DIVISOR;
         }
         applyPIDSettings(settings);
     }
@@ -117,5 +126,23 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
         } catch (IOException e) {
             onSerialIoError(e);
         }
+    }
+
+    private void savePIDSettings() {
+        StringBuilder builder = new StringBuilder("s");
+        for (EditText text : pidSettings) {
+            long value = (long) (Double.parseDouble(text.getText().toString()) * DIVISOR);
+            builder.append(value).append(';');
+        }
+        builder.setLength(builder.length() - 1);
+        builder.append(TextUtil.newline_crlf);
+        if (service != null) {
+            try {
+                service.write(builder.toString().getBytes());
+            } catch (IOException e) {
+                onSerialIoError(e);
+            }
+        }
+        Toast.makeText(getActivity(), "Saved", Toast.LENGTH_SHORT).show();
     }
 }
