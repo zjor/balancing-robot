@@ -13,6 +13,7 @@
     <string name="devices_title">BLE Devices</string>
     <string name="pid_settings_title">PID Settings</string>
     <string name="terminal_title">Serial Terminal</string>
+    <string name="joystick_title">Joystick</string>
 
     <!-- PID Settings Labels -->
     <string name="balance_loop_settings">Balance loop settings</string>

@@ -27,7 +27,7 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
     public static final String FRAGMENT_TAG = "pid_settings";
 
     private static final String REQUEST_PID_SETTINGS_COMMAND = "r" + TextUtil.newline_crlf;
-    private static final double DIVISOR = 10000.0;
+    public static final double DIVISOR = 10000.0;
 
     private static final Pattern SETTINGS_PACKET_REGEX = Pattern.compile("^(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)+;(\\-?\\d+)$");
 

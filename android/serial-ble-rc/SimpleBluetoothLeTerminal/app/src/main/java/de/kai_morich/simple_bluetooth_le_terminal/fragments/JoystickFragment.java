@@ -7,21 +7,27 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import de.kai_morich.simple_bluetooth_le_terminal.R;
+import de.kai_morich.simple_bluetooth_le_terminal.TextUtil;
 import de.kai_morich.simple_bluetooth_le_terminal.views.JoystickView;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 
-public class JoystickFragment extends Fragment implements JoystickView.JoystickListener {
+import static de.kai_morich.simple_bluetooth_le_terminal.fragments.PIDSettingsFragment.DIVISOR;
+
+public class JoystickFragment extends SerialEnabledFragment implements JoystickView.JoystickListener {
+
+    public static final String TAG = JoystickFragment.class.getSimpleName();
 
     public static final float VELOCITY_MAX = 10.0f;
     public static final float STEERING_MAX = 2.0f;
@@ -31,6 +37,12 @@ public class JoystickFragment extends Fragment implements JoystickView.JoystickL
 
     private PublishSubject<Pair<Float, Float>> joystickStream = PublishSubject.create();
     private Disposable subscription;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        deviceAddress = getArguments().getString("device");
+    }
 
     @Nullable
     @Override
@@ -45,10 +57,11 @@ public class JoystickFragment extends Fragment implements JoystickView.JoystickL
     @Override
     public void onResume() {
         super.onResume();
+        getActivity().setTitle(R.string.joystick_title);
         subscription = joystickStream.subscribeOn(Schedulers.newThread())
                 .observeOn(AndroidSchedulers.mainThread())
-                .debounce(50, TimeUnit.MILLISECONDS)
-                .subscribe((pair) -> Log.i("xx", "Pair arrived: " + pair));
+                .throttleLast(100, TimeUnit.MILLISECONDS)
+                .subscribe((pair) -> sendJoystickState(pair.first, pair.second));
     }
 
     @Override
@@ -67,5 +80,31 @@ public class JoystickFragment extends Fragment implements JoystickView.JoystickL
         velocityView.setText(String.format("Velocity: %.2f", velocity));
         steeringView.setText(String.format("Steering: %.2f", steering));
         joystickStream.onNext(Pair.create(velocity, steering));
+    }
+
+    @Override
+    public void onSerialConnect() {
+        super.onSerialConnect();
+        Toast.makeText(getActivity(), "Connected", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onSerialRead(byte[] data) {
+        Log.i(TAG, "onSerialRead: " + new String(data));
+    }
+
+    private void sendJoystickState(float velocity, float steering) {
+        if (service != null) {
+            StringBuilder command = new StringBuilder("c")
+                    .append((int)(velocity * DIVISOR))
+                    .append(';')
+                    .append((int)(steering * DIVISOR))
+                    .append(TextUtil.newline_crlf);
+            try {
+                service.write(command.toString().getBytes());
+            } catch (IOException e) {
+                onSerialIoError(e);
+            }
+        }
     }
 }
