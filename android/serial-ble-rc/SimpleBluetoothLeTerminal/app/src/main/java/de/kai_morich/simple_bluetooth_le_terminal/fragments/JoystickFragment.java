@@ -4,6 +4,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -41,6 +44,7 @@ public class JoystickFragment extends SerialEnabledFragment implements JoystickV
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
         deviceAddress = getArguments().getString("device");
     }
 
@@ -52,6 +56,32 @@ public class JoystickFragment extends SerialEnabledFragment implements JoystickV
         steeringView = view.findViewById(R.id.steering);
         ((JoystickView) view.findViewById(R.id.joystick_view)).setJoystickCallback(this);
         return view;
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.menu_joystick, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.pid_settings) {
+            disconnect();
+            PIDSettingsFragment fragment = new PIDSettingsFragment();
+
+            Bundle args = new Bundle();
+            args.putString("device", deviceAddress);
+            fragment.setArguments(args);
+
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment, fragment, PIDSettingsFragment.FRAGMENT_TAG)
+                    .addToBackStack(null)
+                    .commit();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
     }
 
     @Override
@@ -96,9 +126,9 @@ public class JoystickFragment extends SerialEnabledFragment implements JoystickV
     private void sendJoystickState(float velocity, float steering) {
         if (service != null) {
             StringBuilder command = new StringBuilder("c")
-                    .append((int)(velocity * DIVISOR))
+                    .append((int) (velocity * DIVISOR))
                     .append(';')
-                    .append((int)(steering * DIVISOR))
+                    .append((int) (steering * DIVISOR))
                     .append(TextUtil.newline_crlf);
             try {
                 service.write(command.toString().getBytes());
