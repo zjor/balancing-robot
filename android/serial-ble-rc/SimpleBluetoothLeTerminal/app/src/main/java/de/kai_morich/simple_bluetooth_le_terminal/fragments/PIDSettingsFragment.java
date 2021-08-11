@@ -63,6 +63,7 @@ public class PIDSettingsFragment extends SerialEnabledFragment {
         saveButton = (Button) view.findViewById(R.id.pid_settings_button_save);
         saveButton.setOnClickListener(v -> savePIDSettings());
         cancelButton = (Button) view.findViewById(R.id.pid_settings_button_cancel);
+        cancelButton.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
         return view;
     }

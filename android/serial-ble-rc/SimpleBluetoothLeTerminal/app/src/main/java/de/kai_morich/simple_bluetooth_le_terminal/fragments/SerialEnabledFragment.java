@@ -31,8 +31,6 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
     protected String deviceAddress;
     protected SerialService service;
     private ConnectionStatus connectionStatus;
-    private boolean initialStart = true;
-
     @Override
     public void onDestroy() {
         if (connectionStatus != ConnectionStatus.NOT_CONNECTED) {
@@ -81,8 +79,7 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
     public void onResume() {
         super.onResume();
         getActivity().setTitle(R.string.terminal_title);
-        if (initialStart && service != null) {
-            initialStart = false;
+        if (service != null && !isConnected()) {
             getActivity().runOnUiThread(this::connect);
         }
     }
@@ -93,8 +90,7 @@ public abstract class SerialEnabledFragment extends Fragment implements ServiceC
 
         service = ((SerialService.SerialBinder) binder).getService();
         service.attach(this);
-        if(initialStart && isResumed()) {
-            initialStart = false;
+        if (isResumed() && !isConnected()) {
             getActivity().runOnUiThread(this::connect);
         }
     }

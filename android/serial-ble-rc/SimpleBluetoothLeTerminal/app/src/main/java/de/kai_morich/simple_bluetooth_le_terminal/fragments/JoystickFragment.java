@@ -125,6 +125,9 @@ public class JoystickFragment extends SerialEnabledFragment implements JoystickV
 
     private void sendJoystickState(float velocity, float steering) {
         if (service != null) {
+            if (!isConnected()) {
+                return;
+            }
             StringBuilder command = new StringBuilder("c")
                     .append((int) (velocity * DIVISOR))
                     .append(';')
