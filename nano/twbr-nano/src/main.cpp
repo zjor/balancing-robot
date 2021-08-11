@@ -70,9 +70,12 @@ float pid_settings[6] = {
 float joystick[2] = {0.0f, 0.0f};
 float ref_velocity = 0.0f;
 float ref_steering = 0.0f;
+float steering = 0.0f;
 
-volatile unsigned long currentTick = 0UL;
-volatile unsigned long ticksPerPulse = UINT64_MAX;
+volatile unsigned long currentTickLeft = 0UL;
+volatile unsigned long currentTickRight = 0UL;
+volatile unsigned long ticksPerPulseLeft = UINT64_MAX;
+volatile unsigned long ticksPerPulseRight = UINT64_MAX;
 volatile float accel = 0.0;
 volatile float velocity = 0.0;
 
@@ -170,6 +173,15 @@ bool mpuUpdate() {
   return false;
 }
 
+unsigned long getTicksPerPulse(float velocity) {
+  if (abs(velocity) < 1e-3) {
+    // TODO: disable motor
+    return UINT64_MAX;
+  } else {
+    return (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
+  }
+}
+
 void updateVelocity(unsigned long nowMicros) {
   // static unsigned long counter = 0;
   // static unsigned long sum = 0;
@@ -189,17 +201,22 @@ void updateVelocity(unsigned long nowMicros) {
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
   velocity += accel * dt;
-  if (abs(velocity) < 1e-3) {
-    ticksPerPulse = UINT64_MAX;
+  
+  float leftVelocity = velocity - steering;
+  float rightVelocity = velocity + steering;
+  ticksPerPulseLeft = getTicksPerPulse(leftVelocity);
+  ticksPerPulseRight = getTicksPerPulse(rightVelocity);
+  
+  if (leftVelocity > 0) {
+    digitalWrite(MOT_A_DIR, HIGH);    
   } else {
-    ticksPerPulse = (uint64_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
+    digitalWrite(MOT_A_DIR, LOW);
   }
-  if (velocity > 0) {
-    PORTB |= _BV(PB0);  // digitalWrite(MOT_A_DIR, HIGH);
-    PORTD &= ~_BV(PD6); // digitalWrite(MOT_B_DIR, LOW);  
+
+  if (rightVelocity > 0) {
+    digitalWrite(MOT_B_DIR, LOW);  
   } else {
-    PORTB &= ~_BV(PB0);  // digitalWrite(MOT_A_DIR, LOW);
-    PORTD |= _BV(PD6);  // digitalWrite(MOT_B_DIR, HIGH);  
+    digitalWrite(MOT_B_DIR, HIGH);  
   }
 
   timestamp = nowMicros;
@@ -288,25 +305,37 @@ void loop() {
   static const float a = 0.99;
   targetVelocity = a * targetVelocity + (1.0 - a) * ref_velocity;
   velocityPID.setTarget(targetVelocity);
+
+  steering = a * steering + (1.0 - a) * ref_steering;
 }
 
 /**
  * Stepper control interrupt handler
  */
 ISR(TIMER1_COMPA_vect) {
-  if (currentTick >= ticksPerPulse) {
-    currentTick = 0;
+  if (currentTickLeft >= ticksPerPulseLeft) {
+    currentTickLeft = 0;
   }
 
-  if (currentTick == 0) {
+  if (currentTickLeft == 0) {
     PORTD |= _BV(PD7); // digitalWrite(MOT_B_STEP, HIGH);
-    PORTB |= _BV(PB1); // digitalWrite(MOT_A_STEP, HIGH);
-  } else if (currentTick == PULSE_WIDTH) {
+  } else if (currentTickLeft == PULSE_WIDTH) {
     PORTD &= ~_BV(PD7); // digitalWrite(MOT_B_STEP, LOW);
+  }
+  
+  currentTickLeft++;
+
+  if (currentTickRight >= ticksPerPulseRight) {
+    currentTickRight = 0;
+  }
+
+  if (currentTickRight == 0) {
+    PORTB |= _BV(PB1); // digitalWrite(MOT_A_STEP, HIGH);
+  } else if (currentTickRight == PULSE_WIDTH) {
     PORTB &= ~_BV(PB1); // digitalWrite(MOT_A_STEP, LOW);    
   }
   
-  currentTick++;
+  currentTickRight++;
 }
 
 void send_float_array(float *a, uint8_t size) {
