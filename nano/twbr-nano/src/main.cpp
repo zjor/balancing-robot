@@ -21,7 +21,7 @@
 
 #define MAX_ACCEL (200)
 #define ANGLE_Kp  450.0
-#define ANGLE_Kd  20.0
+#define ANGLE_Kd  30.0
 #define ANGLE_Ki  0.0
 
 #define VELOCITY_Kp  0.007
@@ -67,6 +67,10 @@ float pid_settings[6] = {
   VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki
 };
 
+float joystick[2] = {0.0f, 0.0f};
+float ref_velocity = 0.0f;
+float ref_steering = 0.0f;
+
 volatile unsigned long currentTick = 0UL;
 volatile unsigned long ticksPerPulse = UINT64_MAX;
 volatile float accel = 0.0;
@@ -84,6 +88,7 @@ unsigned long lastUpdateMicros = 0;
 void send_float_array(float *a, uint8_t size);
 void parse_float_array(char *p, uint8_t p_size, float *dest);
 void parse_settings(char *p, uint8_t p_size);
+void parse_control(char *p, uint8_t p_size);
 void handle_packet(char *p, uint8_t p_size);
 
 void initMPU() {
@@ -280,6 +285,9 @@ void loop() {
         packet[packet_size++] = (uint8_t) c;
     }
   }
+  static const float a = 0.99;
+  targetVelocity = a * targetVelocity + (1.0 - a) * ref_velocity;
+  velocityPID.setTarget(targetVelocity);
 }
 
 /**
@@ -337,6 +345,12 @@ void parse_settings(char *p, uint8_t p_size) {
     velocityPID.setSettings(pid_settings[3], pid_settings[4], pid_settings[5]);
 }
 
+void parse_control(char *p, uint8_t p_size) {
+    parse_float_array(p, p_size, joystick);
+    ref_velocity = joystick[0];
+    ref_steering = joystick[1];
+}
+
 void handle_packet(char *p, uint8_t p_size) {
     switch (p[0]) {
         case 'r':
@@ -346,9 +360,9 @@ void handle_packet(char *p, uint8_t p_size) {
             parse_settings(&p[1], p_size - 1);
             send_float_array(pid_settings, 6);
             break;
-        // case 'c':
-        //     parse_control(&p[1], p_size - 1);
-        //     send_float_array(control, 2);
-        //     break;
+        case 'c':
+            parse_control(&p[1], p_size - 1);
+            // send_float_array(joystick, 2);
+            break;
     }
 }
