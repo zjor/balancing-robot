@@ -16,7 +16,8 @@
 #define INTERRUPT_PIN 2
 
 #define PPR   1600
-#define TICKS_PER_SECOND  40000 // 40kHz
+// #define TICKS_PER_SECOND  40000 // 40kHz
+#define TICKS_PER_SECOND  50000 // 50kHz
 #define PULSE_WIDTH 1
 
 #define MAX_ACCEL (200)
@@ -125,6 +126,8 @@ void setTimer1(int ocra) {
   TCCR1A = 0; // set entire TCCR1A register to 0
   TCCR1B = 0; // same for TCCR1B
   TCNT1  = 0; // initialize counter value to 0  
+  
+  // ocra = 16MHz / prescaler / desired_f - 1
   OCR1A = ocra;
   TCCR1B |= (1 << WGM12); // turn on CTC mode
   TCCR1B |= (1 << CS11);  // set prescaler to 8  
@@ -133,7 +136,8 @@ void setTimer1(int ocra) {
 
 void setTimers() {
   cli();
-  setTimer1(49); // 40kHz
+  // setTimer1(49); // 40kHz
+  setTimer1(39); // 50kHz
   sei();
 }
 
@@ -246,7 +250,7 @@ void updateControl(unsigned long nowMicros) {
   if (abs(angle - targetAngle) > PI / 4) {
     isBalancing = false;
     accel = 0.0;
-    velocity = 0.0;
+    velocity = 0.0;    
   }
 
   if (!isBalancing) {
