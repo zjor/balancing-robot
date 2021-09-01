@@ -17,7 +17,8 @@ physical_velocities = list(map(lambda x: get_physical_velocity(x, 1600), velocit
 physical_velocities_2 = list(map(lambda x: get_physical_velocity(x, 50000), velocities))
 
 plt.plot(times, velocities)
-plt.plot(times, physical_velocities)
-plt.plot(times, physical_velocities_2)
+slow_label, = plt.plot(times, physical_velocities, label="1.6kHz")
+fast_label, = plt.plot(times, physical_velocities_2, label="50kHz")
+plt.legend([slow_label, fast_label], ['1.6kHz', '50kHz'])
 plt.grid(True)
 plt.show()
