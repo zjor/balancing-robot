@@ -17,3 +17,4 @@ BLE-controlled self-balancing robot
 - [Hackaday](https://hackaday.io/project/180126-self-balancing-robot-for-humans/)
 - [Arduino Project](https://create.arduino.cc/projecthub/zjor/self-balancing-robot-with-arduino-nano-and-steppers-9bf019)
 - [![Youtube](https://img.youtube.com/vi/_VPTOirKccM/0.jpg)](https://youtu.be/_VPTOirKccM)
+- [Habr](https://habr.com/ru/post/575662/)
