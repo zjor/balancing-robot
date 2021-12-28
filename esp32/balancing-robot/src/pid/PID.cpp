@@ -18,6 +18,12 @@ float PID::getControl(float value, float dt_seconds) {
     return (_Kp * error + _Kd * de + _integralError);
 }
 
+void PID::setSettings(float Kp, float Kd, float Ki) {
+  _Kp = Kp;
+  _Kd = Kd;
+  _Ki = Ki;
+}
+
 void PID::setTarget(float target) {
     _target = target;
     _integralError = .0;
