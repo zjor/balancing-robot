@@ -8,3 +8,7 @@
 #define min(X,Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X,Y) (((X) > (Y)) ? (X) : (Y))
 ```
+
+## Notes
+
+- `pitch` is used for balancing
