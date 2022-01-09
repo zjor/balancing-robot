@@ -79,6 +79,8 @@ void initMotors();
 void setLeftMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_LEFT_EN, enabled ? LOW : HIGH); }
 void setRightMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_RIGHT_EN, enabled ? LOW : HIGH); }
 
+void updateVelocity(unsigned long);
+
 MPU9250_DMP imu;
 volatile bool dmpDataReady = false;
 float roll, pitch, yaw;
@@ -182,18 +184,9 @@ void setup(void) {
 }
 
 void loop() {
+  unsigned long nowMicros = micros();
   readIMU();
-  float angle = normalizeAngle(roll);
-  float velocity = (abs(angle) < 0.5) ? 10.0 * angle : 0.0f;
-  if (velocity > 0) {
-    digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
-    digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
-  } else {
-    digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
-    digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
-  }
-
-  ticksPerPulse = getTicksPerPulse(velocity);
+  updateVelocity(nowMicros);
   logIMU();
 }
 
@@ -212,4 +205,23 @@ void initMotors() {
   pinMode(PIN_MOTOR_LEFT_EN, OUTPUT);
   pinMode(PIN_MOTOR_LEFT_DIR, OUTPUT);
   pinMode(PIN_MOTOR_LEFT_STEP, OUTPUT);  
+}
+
+void updateVelocity(unsigned long nowMicros) {
+  static unsigned long lastUpdateTimestamp = micros();
+  if (nowMicros - lastUpdateTimestamp < 100 /* 10 kHz */) {
+    return;
+  }
+
+  float angle = normalizeAngle(roll);
+  float velocity = (abs(angle) < 0.5) ? 20.0 * angle : 0.0f;
+  if (velocity > 0) {
+    digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
+    digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
+  } else {
+    digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
+    digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
+  }
+
+  ticksPerPulse = getTicksPerPulse(velocity);
 }
