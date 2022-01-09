@@ -11,4 +11,4 @@
 
 ## Notes
 
-- `pitch` is used for balancing
+- `roll` is used for balancing

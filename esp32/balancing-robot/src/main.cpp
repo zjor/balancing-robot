@@ -70,7 +70,14 @@
 
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
-#define LOG_IMU
+// #define LOG_IMU
+
+void initTimerInterrupt();
+
+float normalizeAngle(float);
+void initMotors();
+void setLeftMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_LEFT_EN, enabled ? LOW : HIGH); }
+void setRightMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_RIGHT_EN, enabled ? LOW : HIGH); }
 
 MPU9250_DMP imu;
 volatile bool dmpDataReady = false;
@@ -115,9 +122,11 @@ void logIMU() {
   static unsigned long lastTimestamp = millis();
   unsigned long now = millis();
   if (now - lastTimestamp > 50) {
-    Serial.print("r:"); Serial.print(roll); Serial.print("\t");
-    Serial.print("p:"); Serial.print(pitch); Serial.print("\t");
-    Serial.print("y:"); Serial.println(yaw);
+    // Serial.print("r:"); Serial.print(roll); Serial.print("\t");
+    // Serial.print("p:"); Serial.print(pitch); Serial.print("\t");
+    // Serial.print("y:"); Serial.println(yaw);
+    Serial.print("r:");Serial.print(roll);Serial.print("\t");
+    Serial.println(normalizeAngle(roll));
     lastTimestamp = now;
   }
   #endif
@@ -135,21 +144,27 @@ int getTicksPerPulse(float velocity) {
   if (abs(velocity) < 1e-3) {
     return UINT32_MAX;
   } else {
-    return (uint32_t)(2.0 * PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
+    return (uint32_t)(TWO_PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
   }  
 }
-
 
 void IRAM_ATTR onTimer() {
   if (currentTick >= ticksPerPulse) {
     currentTick = 0;
   }
   if (currentTick == 0) {
+    digitalWrite(PIN_MOTOR_LEFT_STEP, HIGH);
+    digitalWrite(PIN_MOTOR_RIGHT_STEP, HIGH);
   } else if (currentTick == PULSE_WIDTH) {    
+    digitalWrite(PIN_MOTOR_LEFT_STEP, LOW);
+    digitalWrite(PIN_MOTOR_RIGHT_STEP, LOW);
   }
   currentTick++; 
 }
 
+float normalizeAngle(float value) { 
+  return ((value < 180) ? value : value - 360.0f) * DEG_TO_RAD;
+}
 
 void setup(void) {
   // setCpuFrequencyMhz(240);
@@ -158,17 +173,43 @@ void setup(void) {
   Wire.begin();
   Wire.setClock(1000000UL);
 
+  initTimerInterrupt();
+
+  initIMU();
+  initMotors();
+  setLeftMotorEnabled(true);
+  setRightMotorEnabled(true);
+}
+
+void loop() {
+  readIMU();
+  float angle = normalizeAngle(roll);
+  float velocity = (abs(angle) < 0.5) ? 10.0 * angle : 0.0f;
+  if (velocity > 0) {
+    digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
+    digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
+  } else {
+    digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
+    digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
+  }
+
+  ticksPerPulse = getTicksPerPulse(velocity);
+  logIMU();
+}
+
+void initTimerInterrupt() {
   // TODO: add comments to params
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 5, true);
   timerAlarmEnable(timer);
-
-  initIMU();
-
 }
 
-void loop() {
-  readIMU();
-  logIMU();
+void initMotors() {
+  pinMode(PIN_MOTOR_RIGHT_EN, OUTPUT);
+  pinMode(PIN_MOTOR_RIGHT_DIR, OUTPUT);
+  pinMode(PIN_MOTOR_RIGHT_STEP, OUTPUT);
+  pinMode(PIN_MOTOR_LEFT_EN, OUTPUT);
+  pinMode(PIN_MOTOR_LEFT_DIR, OUTPUT);
+  pinMode(PIN_MOTOR_LEFT_STEP, OUTPUT);  
 }
