@@ -5,7 +5,18 @@
 
 class Stepper {
   public:
-    Stepper(int enablePin, int dirPin, int stepPin);
+
+    /**
+     * @brief Construct a new Stepper object
+     * 
+     * @param enablePin LOW - enabled
+     * @param dirPin 
+     * @param stepPin 
+     * @param ticksPerSecond - timer interrupt ticks count per second
+     * @param pulsesPerRevolution - stepper pulses count per revolution
+     * @param pulseWidth - stepper pulse width in ticks count
+     */
+    Stepper(int enablePin, int dirPin, int stepPin, uint32_t ticksPerSecond, uint32_t pulsesPerRevolution, uint32_t pulseWidth);
     void init();
 
     /**
@@ -26,7 +37,10 @@ class Stepper {
   private:
     int enablePin;
     int dirPin;
-    int stepPin;    
+    int stepPin;
+    uint32_t ticksPerSecond;
+    uint32_t pulsesPerRevolution;
+    uint32_t pulseWidth;
     volatile uint32_t currentTick;
     volatile uint32_t ticksPerPulse;
 };
