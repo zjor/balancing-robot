@@ -182,15 +182,6 @@ void initTimerInterrupt() {
   timerAlarmEnable(timer);
 }
 
-void initMotors() {
-  pinMode(PIN_MOTOR_RIGHT_EN, OUTPUT);
-  pinMode(PIN_MOTOR_RIGHT_DIR, OUTPUT);
-  pinMode(PIN_MOTOR_RIGHT_STEP, OUTPUT);
-  pinMode(PIN_MOTOR_LEFT_EN, OUTPUT);
-  pinMode(PIN_MOTOR_LEFT_DIR, OUTPUT);
-  pinMode(PIN_MOTOR_LEFT_STEP, OUTPUT);  
-}
-
 void updateVelocity(unsigned long nowMicros) {
   static unsigned long lastUpdateTimestamp = micros();
   if (nowMicros - lastUpdateTimestamp < 100 /* 10 kHz */) {
@@ -199,6 +190,6 @@ void updateVelocity(unsigned long nowMicros) {
 
   float angle = normalizeAngle(roll);
   float velocity = (abs(angle) < 0.5) ? 20.0 * angle : 0.0f;
-  leftStepper.setVelocity(velocity);
+  leftStepper.setVelocity(-velocity);
   rightStepper.setVelocity(velocity);
 }
