@@ -36,5 +36,13 @@ void Stepper::setVelocity(float velocity) {
 }
 
 void Stepper::tick() {
-  // TODO: impl 
+  if (currentTick >= ticksPerPulse) {
+    currentTick = 0;
+  }
+  if (currentTick == 0) {
+    digitalWrite(stepPin, HIGH);
+  } else if (currentTick == pulseWidth) {    
+    digitalWrite(stepPin, LOW);
+  }
+  currentTick++; 
 }

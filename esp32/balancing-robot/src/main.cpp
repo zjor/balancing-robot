@@ -39,6 +39,7 @@
 #include <SparkFunMPU9250-DMP.h>
 
 #include "pid/PID.h"
+#include "stepper/Stepper.h"
 
 #define PIN_IMU_SCL 22
 #define PIN_IMU_SDA 21
@@ -75,11 +76,11 @@
 void initTimerInterrupt();
 
 float normalizeAngle(float);
-void initMotors();
-void setLeftMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_LEFT_EN, enabled ? LOW : HIGH); }
-void setRightMotorEnabled(bool enabled) { digitalWrite(PIN_MOTOR_RIGHT_EN, enabled ? LOW : HIGH); }
 
 void updateVelocity(unsigned long);
+
+Stepper leftStepper(PIN_MOTOR_LEFT_EN, PIN_MOTOR_LEFT_DIR, PIN_MOTOR_LEFT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
+Stepper rightStepper(PIN_MOTOR_RIGHT_EN, PIN_MOTOR_RIGHT_DIR, PIN_MOTOR_RIGHT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
 
 MPU9250_DMP imu;
 volatile bool dmpDataReady = false;
@@ -139,29 +140,10 @@ PID velocity_pid(0.00, 0.0, 0.0, 0.0);
 bool is_balancing = false;
 
 hw_timer_t * timer = NULL;
-volatile uint32_t ticksPerPulse = TICKS_PER_SECOND;
-volatile uint32_t currentTick = 0;
-
-int getTicksPerPulse(float velocity) {
-  if (abs(velocity) < 1e-3) {
-    return UINT32_MAX;
-  } else {
-    return (uint32_t)(TWO_PI * TICKS_PER_SECOND / (abs(velocity) * PPR)) - PULSE_WIDTH;
-  }  
-}
 
 void IRAM_ATTR onTimer() {
-  if (currentTick >= ticksPerPulse) {
-    currentTick = 0;
-  }
-  if (currentTick == 0) {
-    digitalWrite(PIN_MOTOR_LEFT_STEP, HIGH);
-    digitalWrite(PIN_MOTOR_RIGHT_STEP, HIGH);
-  } else if (currentTick == PULSE_WIDTH) {    
-    digitalWrite(PIN_MOTOR_LEFT_STEP, LOW);
-    digitalWrite(PIN_MOTOR_RIGHT_STEP, LOW);
-  }
-  currentTick++; 
+  leftStepper.tick();
+  rightStepper.tick();
 }
 
 float normalizeAngle(float value) { 
@@ -178,9 +160,11 @@ void setup(void) {
   initTimerInterrupt();
 
   initIMU();
-  initMotors();
-  setLeftMotorEnabled(true);
-  setRightMotorEnabled(true);
+
+  leftStepper.init();
+  rightStepper.init();
+  leftStepper.setEnabled(true);
+  rightStepper.setEnabled(true);
 }
 
 void loop() {
@@ -191,10 +175,10 @@ void loop() {
 }
 
 void initTimerInterrupt() {
-  // TODO: add comments to params
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 5, true);
+  // 80MHz / 80 / 5 = 200kHz
+  timer = timerBegin(0 /* timer ID */, 80 /* CPU frequency divider */, true /* count up */);
+  timerAttachInterrupt(timer, &onTimer, true /* edge */);
+  timerAlarmWrite(timer, 5 /* int at counter value */, true /* reload counter */);
   timerAlarmEnable(timer);
 }
 
@@ -215,13 +199,6 @@ void updateVelocity(unsigned long nowMicros) {
 
   float angle = normalizeAngle(roll);
   float velocity = (abs(angle) < 0.5) ? 20.0 * angle : 0.0f;
-  if (velocity > 0) {
-    digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
-    digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
-  } else {
-    digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
-    digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
-  }
-
-  ticksPerPulse = getTicksPerPulse(velocity);
+  leftStepper.setVelocity(velocity);
+  rightStepper.setVelocity(velocity);
 }
