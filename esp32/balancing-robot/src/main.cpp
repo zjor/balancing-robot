@@ -72,12 +72,15 @@
 #define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
 
 // #define LOG_IMU
+#define LOG_ENABLED
 
 void initTimerInterrupt();
 
 float normalizeAngle(float);
 
 void updateVelocity(unsigned long);
+void updateControl(unsigned long);
+void log(unsigned long);
 
 Stepper leftStepper(PIN_MOTOR_LEFT_EN, PIN_MOTOR_LEFT_DIR, PIN_MOTOR_LEFT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
 Stepper rightStepper(PIN_MOTOR_RIGHT_EN, PIN_MOTOR_RIGHT_DIR, PIN_MOTOR_RIGHT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
@@ -103,12 +106,12 @@ void initIMU() {
   imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | DMP_FEATURE_GYRO_CAL, 100);
   imu.enableInterrupt();
   imu.setIntLevel(INT_ACTIVE_LOW);
-  imu.setIntLatched(INT_LATCHED);
+  imu.setIntLatched(INT_LATCHED);  
 
   attachInterrupt(PIN_IMU_INT, dmpISR, FALLING);
 }
 
-void readIMU() {
+bool readIMU() {
   if (dmpDataReady && imu.fifoAvailable()) {
     if (imu.dmpUpdateFifo() == INV_SUCCESS) {
       dmpDataReady = false;
@@ -116,8 +119,10 @@ void readIMU() {
       roll = imu.roll;
       pitch = imu.pitch;
       yaw = imu.yaw;
+      return true;
     }
   }
+  return false;
 }
 
 void logIMU() {
@@ -135,9 +140,14 @@ void logIMU() {
   #endif
 }
 
-PID angle_pid(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
-PID velocity_pid(0.00, 0.0, 0.0, 0.0);
-bool is_balancing = false;
+PID anglePID(ANGLE_Kp, ANGLE_Kd, ANGLE_Ki, ANGLE_SET_POINT);
+PID velocityPID(VELOCITY_Kp, VELOCITY_Kd, VELOCITY_Ki, 0.0);
+bool isBalancing = false;
+
+float accel = 0.0f;
+float velocity = 0.0f; 
+float angle = 0.0f;
+float targetAngle = ANGLE_SET_POINT;
 
 hw_timer_t * timer = NULL;
 
@@ -169,9 +179,12 @@ void setup(void) {
 
 void loop() {
   unsigned long nowMicros = micros();
-  readIMU();
   updateVelocity(nowMicros);
+  updateControl(nowMicros);
   logIMU();
+  #ifdef LOG_ENABLED
+  log(nowMicros);
+  #endif
 }
 
 void initTimerInterrupt() {
@@ -183,13 +196,94 @@ void initTimerInterrupt() {
 }
 
 void updateVelocity(unsigned long nowMicros) {
-  static unsigned long lastUpdateTimestamp = micros();
-  if (nowMicros - lastUpdateTimestamp < 100 /* 10 kHz */) {
+  static unsigned long timestamp = micros();
+  if (nowMicros - timestamp < 100 /* 10 kHz */) {
     return;
   }
 
-  float angle = normalizeAngle(roll);
-  float velocity = (abs(angle) < 0.5) ? 20.0 * angle : 0.0f;
+  float dt = ((float) (nowMicros - timestamp)) * 1e-6;
+  velocity += accel * dt;
+
   leftStepper.setVelocity(-velocity);
   rightStepper.setVelocity(velocity);
+  
+  timestamp = nowMicros;
+}
+
+void setBalancing(bool balancing) {
+  if (isBalancing != balancing) {
+    isBalancing = balancing;
+    #ifdef LOG_ENABLED
+    Serial.print("IsBalancing: ");
+    Serial.println(isBalancing);
+    #endif
+  }  
+}
+
+void setIMUWarmUpElapsed() {
+  static bool invoked = false;
+  if (!invoked) {
+    invoked = true;
+    #ifdef LOG_ENABLED
+    Serial.println("IMU Warm Up timeout elapsed");
+    #endif
+  }
+}
+
+void updateControl(unsigned long nowMicros) {
+  /* Wait until IMU filter will settle */
+  if (nowMicros < WARMUP_DELAY_US) {    
+    return;
+  } 
+  setIMUWarmUpElapsed();
+
+  static unsigned long timestamp = micros();
+  if (nowMicros - timestamp < 1000 /* 1kHz*/) {
+    return;
+  }
+
+  if (!readIMU()) {
+    return;
+  }
+  
+  angle = normalizeAngle(roll);
+
+  float dt = ((float) (nowMicros - timestamp)) * 1e-6;
+
+  if (abs(angle - targetAngle) < PI / 18) {
+    setBalancing(true);
+  }
+
+  if (abs(angle - targetAngle) > PI / 4) {
+    setBalancing(false);
+    accel = 0.0;
+    velocity = 0.0;    
+  }
+
+  if (!isBalancing) {
+    return;
+  }
+  targetAngle = -velocityPID.getControl(velocity, dt);
+  anglePID.setTarget(targetAngle);
+
+  accel = anglePID.getControl(angle, dt);
+  accel = constrain(accel, -MAX_ACCEL, MAX_ACCEL);
+
+  timestamp = nowMicros;
+}
+
+void log(unsigned long nowMicros) {  
+  static unsigned long timestamp = micros();  
+  if (nowMicros - timestamp < 10000 /* 100Hz */) {
+    return;
+  }
+  Serial.print("a0:");
+  Serial.print(targetAngle * RAD_TO_DEG, 4);
+  Serial.print("\ta:");
+  Serial.print(angle * RAD_TO_DEG, 4);
+  Serial.print("\tv:");
+  Serial.print(velocity, 4);
+  Serial.print("\tu:");
+  Serial.println(accel, 4);  
+  timestamp = nowMicros;   
 }

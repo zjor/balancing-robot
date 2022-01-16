@@ -16,7 +16,7 @@ Stepper::Stepper(int enablePin, int dirPin, int stepPin, uint32_t ticksPerSecond
   this->stepPin = stepPin;
   this->ticksPerSecond = ticksPerSecond;
   this->pulsesPerRevolution = pulsesPerRevolution;
-  this->pulseWidth = pulseWidth;
+  this->pulseWidth = pulseWidth;  
 }
 
 void Stepper::init() {
@@ -24,6 +24,8 @@ void Stepper::init() {
   pinMode(dirPin, OUTPUT);
   pinMode(stepPin, OUTPUT);
   digitalWrite(stepPin, LOW);
+  
+  this->currentTick = 0;
 }
 
 void Stepper::setEnabled(bool enabled) {
