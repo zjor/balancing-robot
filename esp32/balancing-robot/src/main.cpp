@@ -40,6 +40,7 @@
 
 #include "pid/PID.h"
 #include "stepper/Stepper.h"
+#include "indicator/Indicator.h"
 
 #define PIN_IMU_SCL 22
 #define PIN_IMU_SDA 21
@@ -59,20 +60,20 @@
 #define PULSE_WIDTH      1
 
 #define MAX_ACCEL (200)
-#define ANGLE_Kp  400.0
-#define ANGLE_Kd  35.0
+#define ANGLE_Kp  450.0
+#define ANGLE_Kd  40.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.008
+#define VELOCITY_Kp  0.02
 #define VELOCITY_Kd  0.0
-#define VELOCITY_Ki  0.0005
+#define VELOCITY_Ki  0.0004
 
 #define WARMUP_DELAY_US (5000000UL)
 
 #define ANGLE_SET_POINT (10.0 * DEG_TO_RAD)
 
 // #define LOG_IMU
-#define LOG_ENABLED
+// #define LOG_ENABLED
 
 void initTimerInterrupt();
 
@@ -81,6 +82,8 @@ float normalizeAngle(float);
 void updateVelocity(unsigned long);
 void updateControl(unsigned long);
 void log(unsigned long);
+
+Indicator indicator;
 
 Stepper leftStepper(PIN_MOTOR_LEFT_EN, PIN_MOTOR_LEFT_DIR, PIN_MOTOR_LEFT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
 Stepper rightStepper(PIN_MOTOR_RIGHT_EN, PIN_MOTOR_RIGHT_DIR, PIN_MOTOR_RIGHT_STEP, TICKS_PER_SECOND, PPR, PULSE_WIDTH);
@@ -175,6 +178,9 @@ void setup(void) {
   rightStepper.init();
   leftStepper.setEnabled(true);
   rightStepper.setEnabled(true);
+  
+  indicator.init();
+  indicator.setColor(0xFF0000);
 }
 
 void loop() {
@@ -217,6 +223,7 @@ void setBalancing(bool balancing) {
     Serial.print("IsBalancing: ");
     Serial.println(isBalancing);
     #endif
+    indicator.setColor(isBalancing ? 0x0000FF : 0x00FF00);
   }  
 }
 
@@ -224,6 +231,7 @@ void setIMUWarmUpElapsed() {
   static bool invoked = false;
   if (!invoked) {
     invoked = true;
+    indicator.setColor(0x00FF00);
     #ifdef LOG_ENABLED
     Serial.println("IMU Warm Up timeout elapsed");
     #endif
