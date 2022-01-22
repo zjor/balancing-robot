@@ -59,17 +59,17 @@
 #define PULSE_WIDTH      1
 
 #define MAX_ACCEL (200)
-#define ANGLE_Kp  450.0
-#define ANGLE_Kd  30.0
+#define ANGLE_Kp  400.0
+#define ANGLE_Kd  35.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.007
+#define VELOCITY_Kp  0.008
 #define VELOCITY_Kd  0.0
 #define VELOCITY_Ki  0.0005
 
 #define WARMUP_DELAY_US (5000000UL)
 
-#define ANGLE_SET_POINT (2.0 * DEG_TO_RAD)
+#define ANGLE_SET_POINT (10.0 * DEG_TO_RAD)
 
 // #define LOG_IMU
 #define LOG_ENABLED
@@ -204,8 +204,8 @@ void updateVelocity(unsigned long nowMicros) {
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
   velocity += accel * dt;
 
-  leftStepper.setVelocity(-velocity);
-  rightStepper.setVelocity(velocity);
+  leftStepper.setVelocity(velocity);
+  rightStepper.setVelocity(-velocity);
   
   timestamp = nowMicros;
 }
@@ -231,12 +231,6 @@ void setIMUWarmUpElapsed() {
 }
 
 void updateControl(unsigned long nowMicros) {
-  /* Wait until IMU filter will settle */
-  if (nowMicros < WARMUP_DELAY_US) {    
-    return;
-  } 
-  setIMUWarmUpElapsed();
-
   static unsigned long timestamp = micros();
   if (nowMicros - timestamp < 1000 /* 1kHz*/) {
     return;
@@ -245,7 +239,15 @@ void updateControl(unsigned long nowMicros) {
   if (!readIMU()) {
     return;
   }
-  
+
+  /* Wait until IMU filter will settle */
+  if (nowMicros < WARMUP_DELAY_US) {    
+    return;
+  } 
+  setIMUWarmUpElapsed();
+
+
+
   angle = normalizeAngle(roll);
 
   float dt = ((float) (nowMicros - timestamp)) * 1e-6;
@@ -274,9 +276,13 @@ void updateControl(unsigned long nowMicros) {
 
 void log(unsigned long nowMicros) {  
   static unsigned long timestamp = micros();  
-  if (nowMicros - timestamp < 10000 /* 100Hz */) {
+  if (nowMicros - timestamp < 100000 /* 10Hz */) {
     return;
   }
+  Serial.print("roll:");
+  Serial.print(roll, 2);
+  Serial.print("\t");
+
   Serial.print("a0:");
   Serial.print(targetAngle * RAD_TO_DEG, 4);
   Serial.print("\ta:");
