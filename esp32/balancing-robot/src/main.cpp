@@ -56,18 +56,19 @@
 
 #define PPR       1600
 
-#define CPU_FREQ_MHZ  160
-#define TICKS_PER_SECOND 200000
+#define CPU_FREQ_MHZ  240
+#define CPU_FREQ_DIVIDER  120
+#define TICKS_PER_SECOND (200000 * (CPU_FREQ_MHZ / CPU_FREQ_DIVIDER))
 #define PULSE_WIDTH      1
 
 #define MAX_ACCEL (200)
-#define ANGLE_Kp  500.0
-#define ANGLE_Kd  50.0
+#define ANGLE_Kp  800.0
+#define ANGLE_Kd  60.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.004
+#define VELOCITY_Kp  0.005
 #define VELOCITY_Kd  0.0
-#define VELOCITY_Ki  0.000005
+#define VELOCITY_Ki  0.000002
 
 #define WARMUP_DELAY_US (7000000UL)
 
@@ -196,7 +197,7 @@ void loop() {
 
 void initTimerInterrupt() {
   // 80MHz / 80 / 5 = 200kHz  
-  timer = timerBegin(0 /* timer ID */, CPU_FREQ_MHZ /* CPU frequency divider */, true /* count up */);
+  timer = timerBegin(0 /* timer ID */, CPU_FREQ_DIVIDER /* CPU frequency divider */, true /* count up */);
   timerAttachInterrupt(timer, &onTimer, true /* edge */);
   timerAlarmWrite(timer, 5 /* int at counter value */, true /* reload counter */);
   timerAlarmEnable(timer);
@@ -204,7 +205,7 @@ void initTimerInterrupt() {
 
 void updateVelocity(unsigned long nowMicros) {
   static unsigned long timestamp = micros();
-  if (nowMicros - timestamp < 100 /* 10 kHz */) {
+  if (nowMicros - timestamp < 50 /* 20 kHz */) {
     return;
   }
 
