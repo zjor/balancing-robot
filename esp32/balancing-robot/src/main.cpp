@@ -56,21 +56,22 @@
 
 #define PPR       1600
 
+#define CPU_FREQ_MHZ  160
 #define TICKS_PER_SECOND 200000
 #define PULSE_WIDTH      1
 
 #define MAX_ACCEL (200)
-#define ANGLE_Kp  450.0
-#define ANGLE_Kd  40.0
+#define ANGLE_Kp  500.0
+#define ANGLE_Kd  50.0
 #define ANGLE_Ki  0.0
 
-#define VELOCITY_Kp  0.02
+#define VELOCITY_Kp  0.004
 #define VELOCITY_Kd  0.0
-#define VELOCITY_Ki  0.0004
+#define VELOCITY_Ki  0.000005
 
-#define WARMUP_DELAY_US (5000000UL)
+#define WARMUP_DELAY_US (7000000UL)
 
-#define ANGLE_SET_POINT (10.0 * DEG_TO_RAD)
+#define ANGLE_SET_POINT (1.5 * DEG_TO_RAD)
 
 // #define LOG_IMU
 // #define LOG_ENABLED
@@ -164,7 +165,7 @@ float normalizeAngle(float value) {
 }
 
 void setup(void) {
-  // setCpuFrequencyMhz(240);
+  setCpuFrequencyMhz(CPU_FREQ_MHZ);
 
   Serial.begin(115200);
   Wire.begin();
@@ -194,8 +195,8 @@ void loop() {
 }
 
 void initTimerInterrupt() {
-  // 80MHz / 80 / 5 = 200kHz
-  timer = timerBegin(0 /* timer ID */, 80 /* CPU frequency divider */, true /* count up */);
+  // 80MHz / 80 / 5 = 200kHz  
+  timer = timerBegin(0 /* timer ID */, CPU_FREQ_MHZ /* CPU frequency divider */, true /* count up */);
   timerAttachInterrupt(timer, &onTimer, true /* edge */);
   timerAlarmWrite(timer, 5 /* int at counter value */, true /* reload counter */);
   timerAlarmEnable(timer);
@@ -253,8 +254,6 @@ void updateControl(unsigned long nowMicros) {
     return;
   } 
   setIMUWarmUpElapsed();
-
-
 
   angle = normalizeAngle(roll);
 
